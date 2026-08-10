@@ -424,15 +424,27 @@ const CSS = `
 
 /* launch overlay */
 .cp-veil { position:fixed; inset:0; z-index:50;
-  display:flex; justify-content:center; overflow-y:auto;
+  display:flex; justify-content:center; align-items:center; overflow-y:auto;
   background: radial-gradient(125% 85% at 50% 0%, var(--veil1) 0%, var(--veil2) 48%, var(--veil3) 100%);
   animation: cpfade .55s ease both; }
 @keyframes cpfade { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:none; } }
-.cp-veilin { width:100%; max-width:430px; padding:58px 27px 44px; }
+.cp-veilin { width:100%; max-width:430px; padding:40px 27px; margin:auto;
+  display:flex; flex-direction:column; align-items:center; text-align:center; }
+.cp-lclock { font-family:var(--mono); font-size:56px; font-variant-numeric:tabular-nums;
+  letter-spacing:-.03em; color:var(--veilink); line-height:1; }
+.cp-ldate { font-size:13px; color:var(--soft); margin-top:11px; letter-spacing:.02em; }
+.cp-lsec { margin-top:30px; width:100%; }
+.cp-llabel { font-family:var(--mono); font-size:10px; letter-spacing:.16em;
+  text-transform:uppercase; color:var(--soft); margin-bottom:12px; }
+.cp-litem { font-size:17px; line-height:1.45; color:var(--goalink); margin-bottom:11px; }
+.cp-lmeta { display:block; font-size:12px; color:var(--soft); margin-top:3px; }
+.cp-lroutine { font-family:var(--mono); font-size:12px; color:var(--soft);
+  margin-top:30px; letter-spacing:.06em; }
+.cp-lstart { margin-top:38px; min-width:190px; padding:14px 20px; }
 .cp-veildate { font-size:12.5px; color:var(--soft); letter-spacing:.02em; margin:0 0 11px; }
-.cp-veilh { font-size:29px; font-weight:400; letter-spacing:-.022em; margin:0 0 9px;
+.cp-veilh { font-size:27px; font-weight:400; letter-spacing:-.022em; margin:26px 0 0;
   color:var(--veilink); }
-.cp-veilsub { font-size:14px; color:var(--soft); margin:0 0 38px; line-height:1.65;
+.cp-veilsub { font-size:14px; color:var(--soft); margin:26px 0 0; line-height:1.65;
   max-width:33ch; }
 
 .cp-goal { border:none; padding:0 0 0 17px; margin-bottom:23px; position:relative; }
@@ -557,7 +569,7 @@ const CSS = `
   .cp-two { display:grid; grid-template-columns:1fr 1fr; gap:26px;
     align-items:start; }
   .cp-narrow { max-width:440px; }
-  .cp-veilin { max-width:600px; padding:13vh 30px 40px; }
+  .cp-veilin { max-width:560px; }
   .cp-veilh { font-size:36px; }
   .cp-goaltext { font-size:18px; }
 }
@@ -842,12 +854,10 @@ function ControlPanel() {
     Launch,
     {
       goals,
+      tasks,
+      routine,
       now,
-      onEnter: () => setVeil(false),
-      onGoals: () => {
-        setVeil(false);
-        setTab("goals");
-      }
+      onEnter: () => setVeil(false)
     }
   ));
 }
@@ -860,27 +870,30 @@ function evLabel(ts, allDay) {
   const day = days === 0 ? "Today" : days === 1 ? "Tomorrow" : `${pad(d.getDate())}.${pad(d.getMonth() + 1)}`;
   return allDay ? day : `${day} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
-function Launch({ goals, now, onEnter, onGoals }) {
+function Launch({ goals, tasks, routine, now, onEnter }) {
   const longOpen = goals.long.filter((g) => !g.done);
   const shortOpen = goals.short.filter((g) => !g.done);
-  const empty = !longOpen.length && !shortOpen.length;
-  return /* @__PURE__ */ React.createElement("div", { className: "cp-veil" }, /* @__PURE__ */ React.createElement("div", { className: "cp-veilin" }, /* @__PURE__ */ React.createElement("p", { className: "cp-veildate" }, longDate(now)), /* @__PURE__ */ React.createElement("h1", { className: "cp-veilh" }, now.getHours() < 12 ? "Morning." : now.getHours() < 18 ? "Afternoon." : "Evening."), /* @__PURE__ */ React.createElement("p", { className: "cp-veilsub" }, empty ? "No goals set yet. This screen greets you every time you open the app \u2014 that's the whole point of it." : "This is what you said mattered."), longOpen.map((g) => /* @__PURE__ */ React.createElement("div", { className: "cp-goal", key: g.id }, /* @__PURE__ */ React.createElement("div", { className: "cp-goaltext" }, g.text), /* @__PURE__ */ React.createElement(
-    "div",
+  const openTasks = tasks.items.filter((t) => !t.done).slice(0, 4);
+  const today = dayKey(now);
+  const ticked = (routine.log[today] || []).length;
+  const total = routine.items.length;
+  const greeting = now.getHours() < 12 ? "Morning." : now.getHours() < 18 ? "Afternoon." : "Evening.";
+  const Section = ({ label, children }) => children && children.length ? /* @__PURE__ */ React.createElement("div", { className: "cp-lsec" }, /* @__PURE__ */ React.createElement("div", { className: "cp-llabel" }, label), children) : null;
+  return /* @__PURE__ */ React.createElement("div", { className: "cp-veil" }, /* @__PURE__ */ React.createElement("div", { className: "cp-veilin" }, /* @__PURE__ */ React.createElement("div", { className: "cp-lclock" }, pad(now.getHours()), ":", pad(now.getMinutes())), /* @__PURE__ */ React.createElement("div", { className: "cp-ldate" }, longDate(now)), /* @__PURE__ */ React.createElement("h1", { className: "cp-veilh" }, greeting), /* @__PURE__ */ React.createElement(Section, { label: "This month" }, shortOpen.map((g) => /* @__PURE__ */ React.createElement("div", { className: "cp-litem", key: g.id }, g.text, g.target && /* @__PURE__ */ React.createElement(
+    "span",
     {
-      className: "cp-qmeta",
+      className: "cp-lmeta",
       style: daysUntil(g.target) < 0 ? { color: "var(--overdue)" } : void 0
     },
-    "Long term",
-    g.target ? ` \xB7 ${targetLabel(g.target)}` : ""
-  ))), shortOpen.map((g) => /* @__PURE__ */ React.createElement("div", { className: "cp-goal short", key: g.id }, /* @__PURE__ */ React.createElement("div", { className: "cp-goaltext" }, g.text), /* @__PURE__ */ React.createElement(
-    "div",
+    targetLabel(g.target)
+  )))), /* @__PURE__ */ React.createElement(Section, { label: "Long term" }, longOpen.map((g) => /* @__PURE__ */ React.createElement("div", { className: "cp-litem", key: g.id }, g.text, g.target && /* @__PURE__ */ React.createElement(
+    "span",
     {
-      className: "cp-qmeta",
+      className: "cp-lmeta",
       style: daysUntil(g.target) < 0 ? { color: "var(--overdue)" } : void 0
     },
-    "This month",
-    g.target ? ` \xB7 ${targetLabel(g.target)}` : ""
-  ))), /* @__PURE__ */ React.createElement("div", { className: "cp-inline", style: { marginTop: 40 } }, /* @__PURE__ */ React.createElement("button", { className: "cp-btn soft", style: { flex: 2 }, onClick: onEnter }, "Start"), /* @__PURE__ */ React.createElement("button", { className: "cp-btn quiet", style: { flex: 1 }, onClick: onGoals }, "Edit"))));
+    targetLabel(g.target)
+  )))), /* @__PURE__ */ React.createElement(Section, { label: "To do" }, openTasks.map((t) => /* @__PURE__ */ React.createElement("div", { className: "cp-litem", key: t.id }, t.text))), total > 0 && /* @__PURE__ */ React.createElement("div", { className: "cp-lroutine" }, "Routine ", ticked, " of ", total), !longOpen.length && !shortOpen.length && !openTasks.length && /* @__PURE__ */ React.createElement("p", { className: "cp-veilsub" }, "Nothing set yet. Add a goal or a task and it will greet you here."), /* @__PURE__ */ React.createElement("button", { className: "cp-btn soft cp-lstart", onClick: onEnter }, "Start")));
 }
 function GoalsTab({ goals, putGoals }) {
   return /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { className: "cp-two" }, /* @__PURE__ */ React.createElement(
