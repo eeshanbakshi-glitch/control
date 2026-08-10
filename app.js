@@ -487,6 +487,37 @@ const CSS = `
 
 .cp-note { font-size:12px; color:var(--dim); line-height:1.5; margin-top:6px; }
 
+/* modular panels */
+.cp-panel { margin-bottom: 20px; }
+.cp-phead { display:flex; align-items:center; justify-content:space-between;
+  margin-bottom:10px; min-height:22px; }
+.cp-ptitle { font-family:var(--mono); font-size:10px; letter-spacing:.14em;
+  text-transform:uppercase; color:var(--dim); }
+.cp-pctl { display:flex; gap:5px; }
+.cp-pbtn { background:var(--panel2); border:1px solid var(--line); color:var(--dim);
+  border-radius:7px; width:28px; height:25px; font-size:12px; cursor:pointer;
+  line-height:1; transition:.14s; padding:0; }
+.cp-pbtn:hover { color:var(--ink); border-color:var(--dim); }
+.cp-panel.edit .cp-card { border-style:dashed; }
+.cp-panel.edit { cursor:grab; }
+.cp-panel.dragging { opacity:.35; }
+.cp-panel.over .cp-card { border-color:var(--signal); border-style:solid; }
+.cp-drop { height:12px; border-radius:8px; transition:.14s; }
+.cp-drop.on { height:52px; background:var(--panel2);
+  border:1px dashed var(--signal); }
+.cp-editbar { display:flex; align-items:center; justify-content:space-between;
+  gap:16px; padding:12px 15px; margin-bottom:20px; border-radius:var(--r);
+  background:var(--panel); border:1px solid var(--signal); font-size:13px;
+  color:var(--dim); }
+.cp-editbtn { background:var(--panel2); border:1px solid var(--line);
+  color:var(--dim); border-radius:999px; padding:7px 16px; font-family:var(--mono);
+  font-size:11px; letter-spacing:.1em; text-transform:uppercase; cursor:pointer;
+  transition:.14s; }
+.cp-editbtn:hover { color:var(--ink); border-color:var(--dim); }
+.cp-editbtn.on { background:var(--signal); border-color:var(--signal);
+  color:var(--onsignal); font-weight:600; }
+.cp-topright { display:flex; align-items:center; gap:16px; }
+
 /* desktop shell */
 .cp-side { display:none; }
 .cp-d { display:none; }
@@ -512,7 +543,10 @@ const CSS = `
   .cp-strip { display:none; }
   .cp-m { display:none; }
   .cp-d { display:block; }
-  .cp-top { padding:22px 38px 20px; }
+  .cp-top { padding:20px 38px 18px; position:sticky; top:0; z-index:20;
+    background:var(--ground); }
+  .cp-panel { margin-bottom:26px; }
+  .cp-two { gap:30px; }
   .cp-body { padding:30px 38px 70px; max-width:1120px; }
   .cp-two { display:grid; grid-template-columns:1fr 1fr; gap:26px;
     align-items:start; }
@@ -681,6 +715,7 @@ function ControlPanel() {
   const [goals, setGoals] = useState(DEFAULT_GOALS);
   const [cal, setCal] = useState(DEFAULT_CAL);
   const [veil, setVeil] = useState(true);
+  const [editing, setEditing] = useState(false);
   const [now, setNow] = useState(/* @__PURE__ */ new Date());
   const [focusTarget, setFocusTarget] = useState(null);
   const [pendingMin, setPendingMin] = useState(null);
@@ -755,11 +790,21 @@ function ControlPanel() {
     {
       key: id,
       className: "cp-nav" + (tab === id ? " on" : ""),
-      onClick: () => setTab(id)
+      onClick: () => {
+        if (id !== "now") setEditing(false);
+        setTab(id);
+      }
     },
     /* @__PURE__ */ React.createElement("span", null, label),
     counts[id] > 0 && /* @__PURE__ */ React.createElement("span", { className: "cp-navcount" }, counts[id])
-  )), /* @__PURE__ */ React.createElement("div", { className: "cp-sidefoot" }, /* @__PURE__ */ React.createElement("div", { className: "cp-goalmeta" }, "Signed in locally"), /* @__PURE__ */ React.createElement("div", { className: "cp-date", style: { marginTop: 6 } }, routine.lastBackup ? `Backed up ${routine.lastBackup}` : "No backup yet"))), /* @__PURE__ */ React.createElement("div", { className: "cp-shell" }, /* @__PURE__ */ React.createElement("div", { className: "cp-top" }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("span", { className: "cp-mark cp-m" }, "Control Panel"), /* @__PURE__ */ React.createElement("span", { className: "cp-secttitle cp-d" }, (TABS.find(([i]) => i === tab) || ["", ""])[1]), /* @__PURE__ */ React.createElement("span", { className: "cp-date" }, longDate(now))), /* @__PURE__ */ React.createElement("span", { className: "cp-clock" }, pad(now.getHours()), ":", pad(now.getMinutes()), ":", pad(now.getSeconds()))), /* @__PURE__ */ React.createElement("div", { className: "cp-strip" }, TABS.map(([id, label]) => /* @__PURE__ */ React.createElement(
+  )), /* @__PURE__ */ React.createElement("div", { className: "cp-sidefoot" }, /* @__PURE__ */ React.createElement("div", { className: "cp-goalmeta" }, "Signed in locally"), /* @__PURE__ */ React.createElement("div", { className: "cp-date", style: { marginTop: 6 } }, routine.lastBackup ? `Backed up ${routine.lastBackup}` : "No backup yet"))), /* @__PURE__ */ React.createElement("div", { className: "cp-shell" }, /* @__PURE__ */ React.createElement("div", { className: "cp-top" }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("span", { className: "cp-mark cp-m" }, "Control Panel"), /* @__PURE__ */ React.createElement("span", { className: "cp-secttitle cp-d" }, (TABS.find(([i]) => i === tab) || ["", ""])[1]), /* @__PURE__ */ React.createElement("span", { className: "cp-date" }, longDate(now))), /* @__PURE__ */ React.createElement("div", { className: "cp-topright" }, tab === "now" && /* @__PURE__ */ React.createElement(
+    "button",
+    {
+      className: "cp-editbtn" + (editing ? " on" : ""),
+      onClick: () => setEditing(!editing)
+    },
+    editing ? "Done" : "Edit"
+  ), /* @__PURE__ */ React.createElement("span", { className: "cp-clock" }, pad(now.getHours()), ":", pad(now.getMinutes()), ":", pad(now.getSeconds())))), /* @__PURE__ */ React.createElement("div", { className: "cp-strip" }, TABS.map(([id, label]) => /* @__PURE__ */ React.createElement(
     "button",
     {
       key: id,
@@ -775,7 +820,8 @@ function ControlPanel() {
       putRoutine,
       tasks,
       goFocus,
-      reload: loadAll
+      reload: loadAll,
+      editing
     }
   ), ready && tab === "tasks" && /* @__PURE__ */ React.createElement(TasksTab, { tasks, putTasks, goFocus }), ready && tab === "focus" && /* @__PURE__ */ React.createElement(
     FocusTab,
@@ -1011,13 +1057,67 @@ function CalTab({ cal, putCal }) {
     }
   ), /* @__PURE__ */ React.createElement("button", { className: "cp-btn", style: { width: "100%" }, onClick: importICS }, "Import (replaces list)"), msg && /* @__PURE__ */ React.createElement("p", { className: "cp-note" }, msg), /* @__PURE__ */ React.createElement("p", { className: "cp-note" }, "Takes a full .ics export, or one event per line as", /* @__PURE__ */ React.createElement("span", { style: { fontFamily: "var(--mono)" } }, " YYYY-MM-DD HH:MM | Title"), ". Build an iOS Shortcut that copies your next two weeks in that format, then paste it here. Snapshot, not sync \u2014 re-run it when it drifts.")))));
 }
-function NowTab({ now, routine, putRoutine, tasks, goFocus, reload }) {
+const EXTRA_PANELS = [
+  { id: "api", title: "Task breakdown", render: () => /* @__PURE__ */ React.createElement(ApiKeyPanel, null) },
+  {
+    id: "sync",
+    title: "Cloud sync",
+    render: (p) => /* @__PURE__ */ React.createElement("div", { className: "cp-card" }, /* @__PURE__ */ React.createElement(SyncPanel, { reload: p.reload }))
+  },
+  {
+    id: "storage",
+    title: "Storage",
+    render: () => /* @__PURE__ */ React.createElement("div", { className: "cp-card" }, /* @__PURE__ */ React.createElement(StorageHealth, null))
+  }
+];
+const DEFAULT_LAYOUT = {
+  a: ["day", "routine"],
+  b: ["next", "appearance", "sync", "storage", "api", "backup"]
+};
+function knownPanels() {
+  return ["day", "routine", "next", "appearance", "backup"].concat(
+    EXTRA_PANELS.map((p) => p.id)
+  );
+}
+function normaliseLayout(saved) {
+  const known = knownPanels();
+  const base = saved && Array.isArray(saved.a) && Array.isArray(saved.b) ? { a: saved.a.slice(), b: saved.b.slice() } : { a: DEFAULT_LAYOUT.a.slice(), b: DEFAULT_LAYOUT.b.slice() };
+  base.a = base.a.filter((id) => known.indexOf(id) !== -1);
+  base.b = base.b.filter((id) => known.indexOf(id) !== -1);
+  const placed = base.a.concat(base.b);
+  known.forEach((id) => {
+    if (placed.indexOf(id) === -1) base.b.push(id);
+  });
+  return base;
+}
+function moveTo(layout, id, col, index) {
+  const next = {
+    a: layout.a.filter((x) => x !== id),
+    b: layout.b.filter((x) => x !== id)
+  };
+  next[col].splice(index, 0, id);
+  return next;
+}
+function shiftIn(layout, id, col, delta) {
+  const arr = layout[col].slice();
+  const i = arr.indexOf(id);
+  if (i === -1) return layout;
+  const j = Math.max(0, Math.min(arr.length - 1, i + delta));
+  arr.splice(i, 1);
+  arr.splice(j, 0, id);
+  return Object.assign({}, layout, { [col]: arr });
+}
+function NowTab({ now, routine, putRoutine, tasks, goFocus, reload, editing }) {
   const [newItem, setNewItem] = useState("");
   const [msg, setMsg] = useState("");
+  const [drag, setDrag] = useState(null);
+  const [over, setOver] = useState(null);
   const fileRef = useRef(null);
   const today = dayKey(now);
   const done = routine.log[today] || [];
   const { dayStart, dayEnd } = routine;
+  const layout = normaliseLayout(routine.layout);
+  const setLayout = (next) => putRoutine(Object.assign({}, routine, { layout: next }));
   const mins = now.getHours() * 60 + now.getMinutes();
   const startM = dayStart * 60;
   const endM = dayEnd * 60;
@@ -1026,16 +1126,28 @@ function NowTab({ now, routine, putRoutine, tasks, goFocus, reload }) {
   const left = total - elapsed;
   const pct = elapsed / total * 100;
   const toggle = (id) => {
-    const next = done.includes(id) ? done.filter((x) => x !== id) : [...done, id];
-    putRoutine({ ...routine, log: { ...routine.log, [today]: next } });
+    const next = done.includes(id) ? done.filter((x) => x !== id) : done.concat([id]);
+    putRoutine(
+      Object.assign({}, routine, {
+        log: Object.assign({}, routine.log, { [today]: next })
+      })
+    );
   };
   const addItem = () => {
     const label = newItem.trim();
     if (!label) return;
-    putRoutine({ ...routine, items: [...routine.items, { id: uid(), label }] });
+    putRoutine(
+      Object.assign({}, routine, {
+        items: routine.items.concat([{ id: uid(), label }])
+      })
+    );
     setNewItem("");
   };
-  const removeItem = (id) => putRoutine({ ...routine, items: routine.items.filter((i) => i.id !== id) });
+  const removeItem = (id) => putRoutine(
+    Object.assign({}, routine, {
+      items: routine.items.filter((i) => i.id !== id)
+    })
+  );
   const streak = (() => {
     if (!routine.items.length) return 0;
     let n = 0;
@@ -1052,137 +1164,228 @@ function NowTab({ now, routine, putRoutine, tasks, goFocus, reload }) {
   })();
   const ticks = [];
   for (let h = dayStart; h <= dayEnd; h++) {
-    const p = (h * 60 - startM) / total * 100;
-    ticks.push({ h, p });
+    ticks.push({ h, p: (h * 60 - startM) / total * 100 });
   }
   const open = tasks.items.filter((t) => !t.done).slice(0, 3);
-  return /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { className: "cp-daywrap" }, /* @__PURE__ */ React.createElement("span", { className: "cp-label" }, "Day remaining"), /* @__PURE__ */ React.createElement("div", { className: "cp-dayfig" }, /* @__PURE__ */ React.createElement("b", null, Math.floor(left / 60), "h ", pad(left % 60), "m"), /* @__PURE__ */ React.createElement("span", null, "of your ", dayStart, ":00\u2013", dayEnd, ":00 window")), /* @__PURE__ */ React.createElement("div", { className: "cp-track" }, /* @__PURE__ */ React.createElement("div", { className: "cp-fill", style: { width: `${pct}%` } }), /* @__PURE__ */ React.createElement("div", { className: "cp-head", style: { left: `${pct}%` } }), ticks.map(
-    (t) => t.h % 2 === 0 ? /* @__PURE__ */ React.createElement(React.Fragment, { key: t.h }, /* @__PURE__ */ React.createElement("div", { className: "cp-tick", style: { left: `${t.p}%` } }), /* @__PURE__ */ React.createElement("div", { className: "cp-ticklabel", style: { left: `${t.p}%` } }, t.h)) : null
-  )), /* @__PURE__ */ React.createElement("div", { className: "cp-inline", style: { marginTop: 10 } }, /* @__PURE__ */ React.createElement(
-    "select",
-    {
-      className: "cp-select",
-      value: dayStart,
-      onChange: (e) => putRoutine({ ...routine, dayStart: Number(e.target.value) })
-    },
-    Array.from({ length: 12 }, (_, i) => i + 4).map((h) => /* @__PURE__ */ React.createElement("option", { key: h, value: h }, "Start ", h, ":00"))
-  ), /* @__PURE__ */ React.createElement(
-    "select",
-    {
-      className: "cp-select",
-      value: dayEnd,
-      onChange: (e) => putRoutine({ ...routine, dayEnd: Number(e.target.value) })
-    },
-    Array.from({ length: 8 }, (_, i) => i + 18).map((h) => /* @__PURE__ */ React.createElement("option", { key: h, value: h }, "End ", h, ":00"))
-  ))), /* @__PURE__ */ React.createElement("div", { className: "cp-two" }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("span", { className: "cp-label" }, "Routine \xB7 ", done.length, "/", routine.items.length, streak > 1 && /* @__PURE__ */ React.createElement("span", { className: "cp-streak" }, "  ", streak, " day run")), /* @__PURE__ */ React.createElement("div", { className: "cp-card" }, routine.items.length === 0 && /* @__PURE__ */ React.createElement("div", { className: "cp-empty" }, "Nothing here yet. Add your first daily item below."), routine.items.map((it) => /* @__PURE__ */ React.createElement("div", { className: "cp-row", key: it.id }, /* @__PURE__ */ React.createElement(
-    "button",
-    {
-      className: "cp-box" + (done.includes(it.id) ? " on" : ""),
-      onClick: () => toggle(it.id),
-      "aria-label": it.label
-    }
-  ), /* @__PURE__ */ React.createElement("span", { className: "cp-rowtext" + (done.includes(it.id) ? " done" : "") }, it.label), /* @__PURE__ */ React.createElement("button", { className: "cp-x", onClick: () => removeItem(it.id), "aria-label": "Remove" }, "\xD7"))), /* @__PURE__ */ React.createElement("div", { className: "cp-inline", style: { marginTop: 12 } }, /* @__PURE__ */ React.createElement(
-    "input",
-    {
-      className: "cp-input",
-      placeholder: "Add a daily item",
-      value: newItem,
-      onChange: (e) => setNewItem(e.target.value),
-      onKeyDown: (e) => e.key === "Enter" && addItem()
-    }
-  ), /* @__PURE__ */ React.createElement("button", { className: "cp-btn", onClick: addItem }, "Add")), (() => {
-    const have = routine.items.map((i) => i.label.toLowerCase());
-    const spare = SUGGESTED.filter((s) => !have.includes(s.toLowerCase()));
-    if (!spare.length) return null;
-    return /* @__PURE__ */ React.createElement("div", { className: "cp-chips" }, spare.map((s) => /* @__PURE__ */ React.createElement(
+  const bodies = {
+    day: () => /* @__PURE__ */ React.createElement("div", { className: "cp-card" }, /* @__PURE__ */ React.createElement("div", { className: "cp-dayfig" }, /* @__PURE__ */ React.createElement("b", null, Math.floor(left / 60), "h ", pad(left % 60), "m"), /* @__PURE__ */ React.createElement("span", null, "of your ", dayStart, ":00\u2013", dayEnd, ":00 window")), /* @__PURE__ */ React.createElement("div", { className: "cp-track" }, /* @__PURE__ */ React.createElement("div", { className: "cp-fill", style: { width: `${pct}%` } }), /* @__PURE__ */ React.createElement("div", { className: "cp-head", style: { left: `${pct}%` } }), ticks.map(
+      (t) => t.h % 2 === 0 ? /* @__PURE__ */ React.createElement(React.Fragment, { key: t.h }, /* @__PURE__ */ React.createElement("div", { className: "cp-tick", style: { left: `${t.p}%` } }), /* @__PURE__ */ React.createElement("div", { className: "cp-ticklabel", style: { left: `${t.p}%` } }, t.h)) : null
+    )), /* @__PURE__ */ React.createElement("div", { className: "cp-inline", style: { marginTop: 12 } }, /* @__PURE__ */ React.createElement(
+      "select",
+      {
+        className: "cp-select",
+        value: dayStart,
+        onChange: (e) => putRoutine(Object.assign({}, routine, { dayStart: Number(e.target.value) }))
+      },
+      Array.from({ length: 12 }, (_, i) => i + 4).map((h) => /* @__PURE__ */ React.createElement("option", { key: h, value: h }, "Start ", h, ":00"))
+    ), /* @__PURE__ */ React.createElement(
+      "select",
+      {
+        className: "cp-select",
+        value: dayEnd,
+        onChange: (e) => putRoutine(Object.assign({}, routine, { dayEnd: Number(e.target.value) }))
+      },
+      Array.from({ length: 8 }, (_, i) => i + 18).map((h) => /* @__PURE__ */ React.createElement("option", { key: h, value: h }, "End ", h, ":00"))
+    ))),
+    routine: () => /* @__PURE__ */ React.createElement("div", { className: "cp-card" }, routine.items.length === 0 && /* @__PURE__ */ React.createElement("div", { className: "cp-empty" }, "Nothing here yet. Add your first daily item below."), routine.items.map((it) => /* @__PURE__ */ React.createElement("div", { className: "cp-row", key: it.id }, /* @__PURE__ */ React.createElement(
       "button",
       {
-        key: s,
-        className: "cp-chip",
-        onClick: () => putRoutine({
-          ...routine,
-          items: [...routine.items, { id: uid(), label: s }]
-        })
+        className: "cp-box" + (done.includes(it.id) ? " on" : ""),
+        onClick: () => toggle(it.id),
+        "aria-label": it.label
+      }
+    ), /* @__PURE__ */ React.createElement("span", { className: "cp-rowtext" + (done.includes(it.id) ? " done" : "") }, it.label), /* @__PURE__ */ React.createElement("button", { className: "cp-x", onClick: () => removeItem(it.id), "aria-label": "Remove" }, "\xD7"))), /* @__PURE__ */ React.createElement("div", { className: "cp-inline", style: { marginTop: 12 } }, /* @__PURE__ */ React.createElement(
+      "input",
+      {
+        className: "cp-input",
+        placeholder: "Add a daily item",
+        value: newItem,
+        onChange: (e) => setNewItem(e.target.value),
+        onKeyDown: (e) => e.key === "Enter" && addItem()
+      }
+    ), /* @__PURE__ */ React.createElement("button", { className: "cp-btn", onClick: addItem }, "Add")), (() => {
+      const have = routine.items.map((i) => i.label.toLowerCase());
+      const spare = SUGGESTED.filter((s) => have.indexOf(s.toLowerCase()) === -1);
+      if (!spare.length) return null;
+      return /* @__PURE__ */ React.createElement("div", { className: "cp-chips" }, spare.map((s) => /* @__PURE__ */ React.createElement(
+        "button",
+        {
+          key: s,
+          className: "cp-chip",
+          onClick: () => putRoutine(
+            Object.assign({}, routine, {
+              items: routine.items.concat([{ id: uid(), label: s }])
+            })
+          )
+        },
+        "+ ",
+        s
+      )));
+    })()),
+    next: () => /* @__PURE__ */ React.createElement("div", { className: "cp-card" }, open.length === 0 && /* @__PURE__ */ React.createElement("div", { className: "cp-empty" }, "No open tasks. Capture one on the Tasks screen."), open.map((t) => /* @__PURE__ */ React.createElement("div", { className: "cp-row", key: t.id }, /* @__PURE__ */ React.createElement("span", { className: "cp-rowtext" }, t.text), /* @__PURE__ */ React.createElement("button", { className: "cp-min", onClick: () => goFocus(t.text, 25) }, "Start")))),
+    appearance: () => /* @__PURE__ */ React.createElement("div", { className: "cp-card" }, /* @__PURE__ */ React.createElement("div", { className: "cp-inline" }, [
+      ["auto", "Auto"],
+      ["light", "Light"],
+      ["dark", "Dark"]
+    ].map(([v, l]) => /* @__PURE__ */ React.createElement(
+      "button",
+      {
+        key: v,
+        className: "cp-btn" + ((routine.theme || "auto") === v ? " primary" : ""),
+        style: { flex: 1 },
+        onClick: () => putRoutine(Object.assign({}, routine, { theme: v }))
       },
-      "+ ",
-      s
-    )));
-  })())), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("span", { className: "cp-label" }, "Up next"), /* @__PURE__ */ React.createElement("div", { className: "cp-card" }, open.length === 0 && /* @__PURE__ */ React.createElement("div", { className: "cp-empty" }, "No open tasks. Capture one on the Tasks screen."), open.map((t) => /* @__PURE__ */ React.createElement("div", { className: "cp-row", key: t.id }, /* @__PURE__ */ React.createElement("span", { className: "cp-rowtext" }, t.text), /* @__PURE__ */ React.createElement("button", { className: "cp-min", onClick: () => goFocus(t.text, 25) }, "Start")))), /* @__PURE__ */ React.createElement("span", { className: "cp-label" }, "Appearance"), /* @__PURE__ */ React.createElement("div", { className: "cp-card" }, /* @__PURE__ */ React.createElement("div", { className: "cp-inline" }, [
-    ["auto", "Auto"],
-    ["light", "Light"],
-    ["dark", "Dark"]
-  ].map(([v, l]) => /* @__PURE__ */ React.createElement(
-    "button",
-    {
-      key: v,
-      className: "cp-btn" + ((routine.theme || "auto") === v ? " primary" : ""),
-      style: { flex: 1 },
-      onClick: () => putRoutine({ ...routine, theme: v })
-    },
-    l
-  ))), /* @__PURE__ */ React.createElement("p", { className: "cp-note" }, "Auto goes light at 07:00 and dark at 17:30.")), /* @__PURE__ */ React.createElement("span", { className: "cp-label" }, "Task breakdown"), /* @__PURE__ */ React.createElement("div", { className: "cp-card" }, /* @__PURE__ */ React.createElement(
-    "input",
-    {
-      className: "cp-input",
-      type: "password",
-      placeholder: "Anthropic API key (optional)",
-      defaultValue: localStorage.getItem("cp:apikey") || "",
-      onChange: (e) => {
-        const v = e.target.value.trim();
-        if (v) localStorage.setItem("cp:apikey", v);
-        else localStorage.removeItem("cp:apikey");
-      }
-    }
-  ), /* @__PURE__ */ React.createElement("p", { className: "cp-note" }, 'Only needed for "Break into steps" on the Tasks screen. Stored in this browser and sent straight to Anthropic. Everything else works without it.')), /* @__PURE__ */ React.createElement("span", { className: "cp-label" }, "Cloud sync"), /* @__PURE__ */ React.createElement("div", { className: "cp-card" }, /* @__PURE__ */ React.createElement(SyncPanel, { reload })), /* @__PURE__ */ React.createElement("span", { className: "cp-label" }, "Storage"), /* @__PURE__ */ React.createElement("div", { className: "cp-card" }, /* @__PURE__ */ React.createElement(StorageHealth, null)), /* @__PURE__ */ React.createElement("span", { className: "cp-label" }, "Backup"), /* @__PURE__ */ React.createElement("div", { className: "cp-card" }, /* @__PURE__ */ React.createElement("div", { className: "cp-inline" }, /* @__PURE__ */ React.createElement(
-    "button",
-    {
-      className: "cp-btn",
-      style: { flex: 1 },
-      onClick: async () => {
-        const b = await gatherAll();
-        downloadJSON(b, `control-panel-${today}.json`);
-        putRoutine({ ...routine, lastBackup: today });
-        setMsg("Exported. Keep that file in iCloud or Drive.");
-      }
-    },
-    "Export file"
-  ), /* @__PURE__ */ React.createElement(
-    "button",
-    {
-      className: "cp-btn",
-      style: { flex: 1 },
-      onClick: () => fileRef.current && fileRef.current.click()
-    },
-    "Import"
-  )), /* @__PURE__ */ React.createElement(
-    "input",
-    {
-      ref: fileRef,
-      type: "file",
-      accept: "application/json,.json",
-      style: { display: "none" },
-      onChange: async (e) => {
-        const f = e.target.files && e.target.files[0];
-        if (!f) return;
-        try {
-          const text = await f.text();
-          await writeAll(JSON.parse(text));
-          await reload();
-          setMsg("Restored from file.");
-        } catch (err) {
-          setMsg("That file didn't parse. It needs to be an export from here.");
+      l
+    ))), /* @__PURE__ */ React.createElement("p", { className: "cp-note" }, "Auto goes light at 07:00 and dark at 17:30.")),
+    backup: () => /* @__PURE__ */ React.createElement("div", { className: "cp-card" }, /* @__PURE__ */ React.createElement("div", { className: "cp-inline" }, /* @__PURE__ */ React.createElement(
+      "button",
+      {
+        className: "cp-btn",
+        style: { flex: 1 },
+        onClick: async () => {
+          const b = await gatherAll();
+          downloadJSON(b, `control-panel-${today}.json`);
+          putRoutine(Object.assign({}, routine, { lastBackup: today }));
+          setMsg("Exported. Keep that file somewhere real.");
         }
-        e.target.value = "";
+      },
+      "Export file"
+    ), /* @__PURE__ */ React.createElement(
+      "button",
+      {
+        className: "cp-btn",
+        style: { flex: 1 },
+        onClick: () => fileRef.current && fileRef.current.click()
+      },
+      "Import"
+    )), /* @__PURE__ */ React.createElement(
+      "input",
+      {
+        ref: fileRef,
+        type: "file",
+        accept: "application/json,.json",
+        style: { display: "none" },
+        onChange: async (e) => {
+          const f = e.target.files && e.target.files[0];
+          if (!f) return;
+          try {
+            const text = await f.text();
+            await writeAll(JSON.parse(text));
+            await reload();
+            setMsg("Restored from file.");
+          } catch (err) {
+            setMsg("That file didn't parse. It needs to be an export from here.");
+          }
+          e.target.value = "";
+        }
+      }
+    ), msg && /* @__PURE__ */ React.createElement("p", { className: "cp-note" }, msg), (() => {
+      if (!routine.lastBackup)
+        return /* @__PURE__ */ React.createElement("p", { className: "cp-note" }, "No backup yet. Export once so nothing here is the only copy.");
+      const days = Math.round(
+        (new Date(today) - new Date(routine.lastBackup)) / 864e5
+      );
+      return /* @__PURE__ */ React.createElement(
+        "p",
+        {
+          className: "cp-note",
+          style: days > 14 ? { color: "var(--warn)" } : void 0
+        },
+        "Last export ",
+        routine.lastBackup,
+        days > 14 ? ` \u2014 ${days} days ago, worth doing again.` : "."
+      );
+    })())
+  };
+  const titles = {
+    day: "Day remaining",
+    routine: `Routine \xB7 ${done.length}/${routine.items.length}`,
+    next: "Up next",
+    appearance: "Appearance",
+    backup: "Backup"
+  };
+  EXTRA_PANELS.forEach((p) => {
+    titles[p.id] = p.title;
+    bodies[p.id] = () => p.render({ reload, routine });
+  });
+  const renderPanel = (id, col, index) => {
+    if (!bodies[id]) return null;
+    return /* @__PURE__ */ React.createElement(
+      "div",
+      {
+        key: id,
+        className: "cp-panel" + (editing ? " edit" : "") + (drag === id ? " dragging" : "") + (over === id && drag && drag !== id ? " over" : ""),
+        draggable: editing,
+        onDragStart: (e) => {
+          setDrag(id);
+          try {
+            e.dataTransfer.effectAllowed = "move";
+            e.dataTransfer.setData("text/plain", id);
+          } catch (err) {
+          }
+        },
+        onDragEnd: () => {
+          setDrag(null);
+          setOver(null);
+        },
+        onDragOver: (e) => {
+          if (!editing || !drag) return;
+          e.preventDefault();
+          if (over !== id) setOver(id);
+        },
+        onDrop: (e) => {
+          e.preventDefault();
+          if (drag && drag !== id) setLayout(moveTo(layout, drag, col, index));
+          setDrag(null);
+          setOver(null);
+        }
+      },
+      /* @__PURE__ */ React.createElement("div", { className: "cp-phead" }, /* @__PURE__ */ React.createElement("span", { className: "cp-ptitle" }, titles[id] || id), editing && /* @__PURE__ */ React.createElement("span", { className: "cp-pctl" }, /* @__PURE__ */ React.createElement(
+        "button",
+        {
+          className: "cp-pbtn",
+          title: "Move up",
+          onClick: () => setLayout(shiftIn(layout, id, col, -1))
+        },
+        "\u2191"
+      ), /* @__PURE__ */ React.createElement(
+        "button",
+        {
+          className: "cp-pbtn",
+          title: "Move down",
+          onClick: () => setLayout(shiftIn(layout, id, col, 1))
+        },
+        "\u2193"
+      ), /* @__PURE__ */ React.createElement(
+        "button",
+        {
+          className: "cp-pbtn",
+          title: "Other column",
+          onClick: () => setLayout(moveTo(layout, id, col === "a" ? "b" : "a", index))
+        },
+        "\u21C4"
+      ))),
+      bodies[id]()
+    );
+  };
+  const columnEnd = (col) => /* @__PURE__ */ React.createElement(
+    "div",
+    {
+      className: "cp-drop" + (over === "end-" + col && drag ? " on" : ""),
+      onDragOver: (e) => {
+        if (!editing || !drag) return;
+        e.preventDefault();
+        setOver("end-" + col);
+      },
+      onDrop: (e) => {
+        e.preventDefault();
+        if (drag) setLayout(moveTo(layout, drag, col, layout[col].length));
+        setDrag(null);
+        setOver(null);
       }
     }
-  ), msg && /* @__PURE__ */ React.createElement("p", { className: "cp-note" }, msg), (() => {
-    if (!routine.lastBackup)
-      return /* @__PURE__ */ React.createElement("p", { className: "cp-note" }, "No backup yet. Export once so nothing here is the only copy.");
-    const days = Math.round(
-      (new Date(today) - new Date(routine.lastBackup)) / 864e5
-    );
-    return /* @__PURE__ */ React.createElement("p", { className: "cp-note", style: days > 14 ? { color: "var(--warn)" } : void 0 }, "Last export ", routine.lastBackup, days > 14 ? ` \u2014 ${days} days ago, worth doing again.` : ".");
-  })()))));
+  );
+  return /* @__PURE__ */ React.createElement(React.Fragment, null, editing && /* @__PURE__ */ React.createElement("div", { className: "cp-editbar" }, /* @__PURE__ */ React.createElement("span", null, "Drag a panel to move it, or use the arrows. Changes save as you go."), /* @__PURE__ */ React.createElement("button", { className: "cp-btn quiet", onClick: () => setLayout(DEFAULT_LAYOUT) }, "Reset layout")), /* @__PURE__ */ React.createElement("div", { className: "cp-two" }, /* @__PURE__ */ React.createElement("div", null, layout.a.map((id, i) => renderPanel(id, "a", i)), editing && columnEnd("a")), /* @__PURE__ */ React.createElement("div", null, layout.b.map((id, i) => renderPanel(id, "b", i)), editing && columnEnd("b"))));
 }
 function TasksTab({ tasks, putTasks, goFocus }) {
   const [draft, setDraft] = useState("");
@@ -1242,7 +1445,7 @@ Respond with ONLY a JSON array, no markdown, no preamble:
       setOpenId(task.id);
     } catch (e) {
       setErr(
-        e && e.message === "nokey" ? "No API key set. Add one under Now \u2192 Task breakdown, or write the steps yourself." : "Couldn't split that one. Try again, or add steps by hand."
+        e && e.message === "nokey" ? "No API key set. Add one on the Now screen, or write the steps yourself." : "Couldn't split that one. Try again, or add steps by hand."
       );
     } finally {
       setBusyId(null);
@@ -1621,38 +1824,6 @@ function GymProgress({ gym, setView }) {
     ));
   }))), /* @__PURE__ */ React.createElement("p", { className: "cp-note" }, "Volume is weight \xD7 reps, summed per session. It's a blunt measure \u2014 it rises if you add a set of anything \u2014 so read it alongside what you actually lifted rather than as a verdict on its own."));
 }
-function StorageHealth() {
-  const [state, setState] = useState({ checked: false });
-  useEffect(() => {
-    (async () => {
-      const persisted = await requestPersistence();
-      let quota = null;
-      try {
-        if (navigator.storage && navigator.storage.estimate) {
-          const est = await navigator.storage.estimate();
-          quota = est.usage != null ? Math.round(est.usage / 1024) : null;
-        }
-      } catch (e) {
-      }
-      const mirror = await idbGet("cp:tasks") !== null;
-      const standalone = window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone === true;
-      setState({ checked: true, persisted, quota, mirror, standalone });
-    })();
-  }, []);
-  if (!state.checked) return /* @__PURE__ */ React.createElement("div", { className: "cp-note" }, "Checking\u2026");
-  const Row = ({ ok, children }) => /* @__PURE__ */ React.createElement("div", { className: "cp-row" }, /* @__PURE__ */ React.createElement(
-    "span",
-    {
-      className: "cp-box",
-      style: {
-        background: ok ? "var(--live)" : "var(--line)",
-        borderColor: ok ? "var(--live)" : "var(--line)",
-        cursor: "default"
-      }
-    }
-  ), /* @__PURE__ */ React.createElement("span", { className: "cp-rowtext", style: { fontSize: 14 } }, children));
-  return /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement(Row, { ok: state.persisted }, state.persisted ? "Browser marked this data as persistent" : "Not marked persistent \u2014 the browser may evict it"), /* @__PURE__ */ React.createElement(Row, { ok: state.mirror }, state.mirror ? "Second copy in IndexedDB" : "No mirror copy yet"), /* @__PURE__ */ React.createElement(Row, { ok: state.standalone }, state.standalone ? "Running as an installed app" : "Running in a browser tab \u2014 install to the home screen"), /* @__PURE__ */ React.createElement("p", { className: "cp-note" }, state.quota != null ? `About ${state.quota} KB stored. ` : "", "None of this is a guarantee. The exported file is the only copy that survives a lost phone."));
-}
 function SyncPanel({ reload }) {
   const [status, setStatus] = useState(Sync.status);
   const [detail, setDetail] = useState("");
@@ -1789,6 +1960,22 @@ function SyncPanel({ reload }) {
     },
     "Sign out"
   ))), err && /* @__PURE__ */ React.createElement("p", { className: "cp-note", style: { color: "var(--warn)" } }, err), /* @__PURE__ */ React.createElement("p", { className: "cp-note" }, "Last device to save wins. Editing the same day on two devices at once can lose one side's changes \u2014 there is no merge."));
+}
+function ApiKeyPanel() {
+  return /* @__PURE__ */ React.createElement("div", { className: "cp-card" }, /* @__PURE__ */ React.createElement(
+    "input",
+    {
+      className: "cp-input",
+      type: "password",
+      placeholder: "Anthropic API key (optional)",
+      defaultValue: localStorage.getItem("cp:apikey") || "",
+      onChange: (e) => {
+        const v = e.target.value.trim();
+        if (v) localStorage.setItem("cp:apikey", v);
+        else localStorage.removeItem("cp:apikey");
+      }
+    }
+  ), /* @__PURE__ */ React.createElement("p", { className: "cp-note" }, 'Only needed for "Break into steps" on the Tasks screen. Stored in this browser and sent straight to Anthropic. Everything else works without it.'));
 }
 const root = ReactDOM.createRoot(document.getElementById("root"));
 root.render(React.createElement(ControlPanel));
