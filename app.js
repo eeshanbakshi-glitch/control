@@ -1977,5 +1977,37 @@ function ApiKeyPanel() {
     }
   ), /* @__PURE__ */ React.createElement("p", { className: "cp-note" }, 'Only needed for "Break into steps" on the Tasks screen. Stored in this browser and sent straight to Anthropic. Everything else works without it.'));
 }
+function StorageHealth() {
+  const [state, setState] = useState({ checked: false });
+  useEffect(() => {
+    (async () => {
+      const persisted = await requestPersistence();
+      let quota = null;
+      try {
+        if (navigator.storage && navigator.storage.estimate) {
+          const est = await navigator.storage.estimate();
+          quota = est.usage != null ? Math.round(est.usage / 1024) : null;
+        }
+      } catch (e) {
+      }
+      const mirror = await idbGet("cp:tasks") !== null;
+      const standalone = window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone === true;
+      setState({ checked: true, persisted, quota, mirror, standalone });
+    })();
+  }, []);
+  if (!state.checked) return /* @__PURE__ */ React.createElement("div", { className: "cp-note" }, "Checking\\u2026");
+  const Row = ({ ok, children }) => /* @__PURE__ */ React.createElement("div", { className: "cp-row" }, /* @__PURE__ */ React.createElement(
+    "span",
+    {
+      className: "cp-box",
+      style: {
+        background: ok ? "var(--live)" : "var(--line)",
+        borderColor: ok ? "var(--live)" : "var(--line)",
+        cursor: "default"
+      }
+    }
+  ), /* @__PURE__ */ React.createElement("span", { className: "cp-rowtext", style: { fontSize: 14 } }, children));
+  return /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement(Row, { ok: state.persisted }, state.persisted ? "Browser marked this data as persistent" : "Not marked persistent \u2014 the browser may evict it"), /* @__PURE__ */ React.createElement(Row, { ok: state.mirror }, state.mirror ? "Second copy in IndexedDB" : "No mirror copy yet"), /* @__PURE__ */ React.createElement(Row, { ok: state.standalone }, state.standalone ? "Running as an installed app" : "Running in a browser tab \u2014 install to the home screen"), /* @__PURE__ */ React.createElement("p", { className: "cp-note" }, state.quota != null ? `About ${state.quota} KB stored. ` : "", "None of this is a guarantee. The exported file is the only copy that survives a lost phone."));
+}
 const root = ReactDOM.createRoot(document.getElementById("root"));
 root.render(React.createElement(ControlPanel));
