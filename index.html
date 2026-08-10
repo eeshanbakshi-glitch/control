@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Control Panel</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="description" content="Personal focus, goals and training tracker." />
+
+<!-- installs to the iOS home screen as a fullscreen app -->
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="Control Panel" />
+<meta name="theme-color" content="#161D24" />
+<link rel="manifest" href="manifest.json" />
+<link rel="apple-touch-icon" href="icon.png" />
+<link rel="icon" href="icon.png" />
+
+<style>
+  html, body { margin: 0; padding: 0; background: #161D24; }
+  body { min-height: 100vh; }
+  @media (prefers-color-scheme: light) { html, body { background: #F4F1EA; } }
+  #root { min-height: 100vh; }
+  .boot { color: #8496A3; font: 14px -apple-system, BlinkMacSystemFont, sans-serif;
+          padding: 40px; text-align: center; }
+</style>
+</head>
+<body>
+  <div id="root"><div class="boot">Loading…</div></div>
+  <script src="vendor/react.js"></script>
+  <script src="vendor/react-dom.js"></script>
+  <script src="vendor/supabase.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
