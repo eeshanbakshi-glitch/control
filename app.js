@@ -245,24 +245,7 @@ const DEFAULT_ROUTINE = {
   dayStart: 7,
   dayEnd: 23
 };
-const DEFAULT_GYM = {
-  exercises: [
-    "Leg press",
-    "Hip thrust",
-    "Romanian deadlift",
-    "Leg extension",
-    "Leg curl",
-    "Lat pulldown",
-    "Seated row",
-    "Chest press",
-    "Lateral raise",
-    "Face pull",
-    "Barbell shrug",
-    "Bicep curl",
-    "Triceps pushdown"
-  ],
-  sets: []
-};
+const DEFAULT_GYM = { exercises: [], sets: [] };
 const CSS = `
 .cp {
   --ground:#161D24; --panel:#1E2831; --panel2:#26313B; --line:#33414C;
@@ -418,6 +401,7 @@ const CSS = `
 
 /* gym */
 .cp-grid2 { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+.cp-grid3 { display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px; }
 .cp-last { font-family:var(--mono); font-size:11px; color:var(--live);
   margin-top:10px; }
 .cp-setrow { display:flex; justify-content:space-between; align-items:center;
@@ -498,6 +482,16 @@ const CSS = `
 .cp-chatbar { display:flex; gap:8px; position:sticky; bottom:0; padding:10px 0;
   background:var(--ground); }
 .cp-sugg { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:18px; }
+.cp-msg.ai { white-space:normal; }
+.cp-md-p { margin:0 0 9px; }
+.cp-md-p:last-child { margin-bottom:0; }
+.cp-md-h { margin:12px 0 7px; font-weight:600; font-size:15px; }
+.cp-md-h:first-child { margin-top:0; }
+.cp-md-list { margin:0 0 9px; padding-left:20px; }
+.cp-md-list li { margin-bottom:5px; }
+.cp-md-list:last-child { margin-bottom:0; }
+.cp-code { font-family:var(--mono); font-size:13px; background:var(--panel2);
+  padding:1px 5px; border-radius:4px; }
 
 /* modular panels */
 .cp-panel { margin-bottom: 20px; }
@@ -791,9 +785,8 @@ function ControlPanel() {
     ["tasks", "Tasks"],
     ["focus", "Focus"],
     ["gym", "Gym"],
-    ["goals", "Goals"],
-    ["cal", "Upcoming"]
-  ].concat(EXTRA_TABS.map((t) => [t.id, t.title]));
+    ["goals", "Goals"]
+  ].concat(EXTRA_TABS.map((t) => [t.id, t.title])).concat([["settings", "Settings"]]);
   const openTasks = tasks.items.filter((t) => !t.done).length;
   const openGoals = goals.long.filter((g) => !g.done).length + goals.short.filter((g) => !g.done).length;
   const counts = { tasks: openTasks, goals: openGoals };
@@ -843,13 +836,12 @@ function ControlPanel() {
       pendingMin,
       clearPending: () => setPendingMin(null)
     }
-  ), ready && tab === "gym" && /* @__PURE__ */ React.createElement(GymTab, { gym, putGym }), ready && tab === "goals" && /* @__PURE__ */ React.createElement(GoalsTab, { goals, putGoals }), ready && tab === "cal" && /* @__PURE__ */ React.createElement(CalTab, { cal, putCal }), ready && EXTRA_TABS.map(
+  ), ready && tab === "gym" && /* @__PURE__ */ React.createElement(GymTab, { gym, putGym }), ready && tab === "goals" && /* @__PURE__ */ React.createElement(GoalsTab, { goals, putGoals }), ready && tab === "settings" && /* @__PURE__ */ React.createElement(SettingsTab, { routine, putRoutine, reload: loadAll }), ready && EXTRA_TABS.map(
     (t) => tab === t.id ? /* @__PURE__ */ React.createElement(React.Fragment, { key: t.id }, t.render()) : null
   ))), ready && veil && /* @__PURE__ */ React.createElement(
     Launch,
     {
       goals,
-      cal,
       now,
       onEnter: () => setVeil(false),
       onGoals: () => {
@@ -868,8 +860,7 @@ function evLabel(ts, allDay) {
   const day = days === 0 ? "Today" : days === 1 ? "Tomorrow" : `${pad(d.getDate())}.${pad(d.getMonth() + 1)}`;
   return allDay ? day : `${day} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
-function Launch({ goals, cal, now, onEnter, onGoals }) {
-  const soon = cal.events.filter((e) => e.ts > now.getTime() - 36e5).sort((a, b) => a.ts - b.ts).slice(0, 3);
+function Launch({ goals, now, onEnter, onGoals }) {
   const longOpen = goals.long.filter((g) => !g.done);
   const shortOpen = goals.short.filter((g) => !g.done);
   const empty = !longOpen.length && !shortOpen.length;
@@ -889,7 +880,7 @@ function Launch({ goals, cal, now, onEnter, onGoals }) {
     },
     "This month",
     g.target ? ` \xB7 ${targetLabel(g.target)}` : ""
-  ))), soon.length > 0 && /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("p", { className: "cp-qhead" }, "Coming up"), soon.map((e) => /* @__PURE__ */ React.createElement("div", { className: "cp-qev", key: e.id }, /* @__PURE__ */ React.createElement("span", { className: "cp-qevd" }, evLabel(e.ts, e.allDay)), /* @__PURE__ */ React.createElement("span", { className: "cp-qevt" }, e.title)))), /* @__PURE__ */ React.createElement("div", { className: "cp-inline", style: { marginTop: 40 } }, /* @__PURE__ */ React.createElement("button", { className: "cp-btn soft", style: { flex: 2 }, onClick: onEnter }, "Start"), /* @__PURE__ */ React.createElement("button", { className: "cp-btn quiet", style: { flex: 1 }, onClick: onGoals }, "Edit"))));
+  ))), /* @__PURE__ */ React.createElement("div", { className: "cp-inline", style: { marginTop: 40 } }, /* @__PURE__ */ React.createElement("button", { className: "cp-btn soft", style: { flex: 2 }, onClick: onEnter }, "Start"), /* @__PURE__ */ React.createElement("button", { className: "cp-btn quiet", style: { flex: 1 }, onClick: onGoals }, "Edit"))));
 }
 function GoalsTab({ goals, putGoals }) {
   return /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { className: "cp-two" }, /* @__PURE__ */ React.createElement(
@@ -944,7 +935,14 @@ function GoalSection({ k, title, blurb, goals, putGoals }) {
       onClick: () => patch(g.id, (x) => ({ ...x, done: !x.done })),
       "aria-label": g.text
     }
-  ), /* @__PURE__ */ React.createElement("div", { style: { flex: 1 } }, /* @__PURE__ */ React.createElement("div", { className: "cp-rowtext" + (g.done ? " done" : "") }, g.text), g.target && !g.done && /* @__PURE__ */ React.createElement(
+  ), /* @__PURE__ */ React.createElement("div", { style: { flex: 1 } }, /* @__PURE__ */ React.createElement(
+    Editable,
+    {
+      className: "cp-rowtext" + (g.done ? " done" : ""),
+      value: g.text,
+      onSave: (v) => patch(g.id, (x) => ({ ...x, text: v }))
+    }
+  ), g.target && !g.done && /* @__PURE__ */ React.createElement(
     "div",
     {
       className: "cp-goalmeta",
@@ -990,109 +988,14 @@ function GoalSection({ k, title, blurb, goals, putGoals }) {
     "Cancel"
   )))));
 }
-function CalTab({ cal, putCal }) {
-  const [paste, setPaste] = useState("");
-  const [msg, setMsg] = useState("");
-  const [manual, setManual] = useState("");
-  const [when, setWhen] = useState("");
-  const future = cal.events.filter((e) => e.ts > Date.now() - 36e5).sort((a, b) => a.ts - b.ts);
-  const importICS = () => {
-    const parsed = paste.includes("BEGIN:VEVENT") ? parseICS(paste) : parseLines(paste);
-    if (!parsed.length) {
-      setMsg(
-        "Nothing recognised. Use either a full .ics file, or one line per event: 2026-08-12 14:30 | Title"
-      );
-      return;
-    }
-    putCal({ events: parsed, imported: dayKey() });
-    setPaste("");
-    setMsg(`Imported ${parsed.length} events.`);
-  };
-  const addManual = () => {
-    const t = manual.trim();
-    const d = new Date(when);
-    if (!t || isNaN(d.getTime())) return;
-    putCal({
-      ...cal,
-      events: [
-        ...cal.events,
-        { id: uid(), title: t, ts: d.getTime(), allDay: false }
-      ]
-    });
-    setManual("");
-    setWhen("");
-  };
-  return /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { className: "cp-two" }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("span", { className: "cp-label" }, "Upcoming \xB7 ", future.length), /* @__PURE__ */ React.createElement("div", { className: "cp-card" }, future.length === 0 && /* @__PURE__ */ React.createElement("div", { className: "cp-empty" }, "Nothing scheduled. Add something below, or import your calendar."), future.slice(0, 25).map((e) => /* @__PURE__ */ React.createElement("div", { className: "cp-ev", key: e.id }, /* @__PURE__ */ React.createElement("span", { className: "cp-evd" }, evLabel(e.ts, e.allDay)), /* @__PURE__ */ React.createElement("span", { className: "cp-evt" }, e.title), /* @__PURE__ */ React.createElement(
-    "button",
-    {
-      className: "cp-x",
-      onClick: () => putCal({
-        ...cal,
-        events: cal.events.filter((x) => x.id !== e.id)
-      }),
-      "aria-label": "Remove"
-    },
-    "\xD7"
-  ))))), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("span", { className: "cp-label" }, "Add one"), /* @__PURE__ */ React.createElement("div", { className: "cp-card" }, /* @__PURE__ */ React.createElement(
-    "input",
-    {
-      className: "cp-input",
-      placeholder: "Event",
-      value: manual,
-      onChange: (e) => setManual(e.target.value),
-      style: { marginBottom: 8 }
-    }
-  ), /* @__PURE__ */ React.createElement(
-    "input",
-    {
-      className: "cp-input",
-      type: "datetime-local",
-      value: when,
-      onChange: (e) => setWhen(e.target.value),
-      style: { marginBottom: 10 }
-    }
-  ), /* @__PURE__ */ React.createElement(
-    "button",
-    {
-      className: "cp-btn primary",
-      style: { width: "100%" },
-      onClick: addManual
-    },
-    "Add event"
-  )), /* @__PURE__ */ React.createElement("span", { className: "cp-label" }, "Import calendar"), /* @__PURE__ */ React.createElement("div", { className: "cp-card" }, /* @__PURE__ */ React.createElement(
-    "textarea",
-    {
-      className: "cp-input",
-      rows: 4,
-      placeholder: "Paste an .ics export, or lines like:\n2026-08-12 14:30 | Lab meeting",
-      value: paste,
-      onChange: (e) => setPaste(e.target.value),
-      style: { marginBottom: 10, fontFamily: "var(--mono)", fontSize: 12 }
-    }
-  ), /* @__PURE__ */ React.createElement("button", { className: "cp-btn", style: { width: "100%" }, onClick: importICS }, "Import (replaces list)"), msg && /* @__PURE__ */ React.createElement("p", { className: "cp-note" }, msg), /* @__PURE__ */ React.createElement("p", { className: "cp-note" }, "Takes a full .ics export, or one event per line as", /* @__PURE__ */ React.createElement("span", { style: { fontFamily: "var(--mono)" } }, " YYYY-MM-DD HH:MM | Title"), ". Build an iOS Shortcut that copies your next two weeks in that format, then paste it here. Snapshot, not sync \u2014 re-run it when it drifts.")))));
-}
-const EXTRA_PANELS = [
-  { id: "api", title: "Task breakdown", render: () => /* @__PURE__ */ React.createElement(ApiKeyPanel, null) },
-  {
-    id: "sync",
-    title: "Cloud sync",
-    render: (p) => /* @__PURE__ */ React.createElement("div", { className: "cp-card" }, /* @__PURE__ */ React.createElement(SyncPanel, { reload: p.reload }))
-  },
-  {
-    id: "storage",
-    title: "Storage",
-    render: () => /* @__PURE__ */ React.createElement("div", { className: "cp-card" }, /* @__PURE__ */ React.createElement(StorageHealth, null))
-  }
-];
+const EXTRA_PANELS = [];
 const EXTRA_TABS = [{ id: "chat", title: "Chat", render: () => /* @__PURE__ */ React.createElement(ChatTab, null) }];
 const DEFAULT_LAYOUT = {
   a: ["day", "routine"],
-  b: ["next", "appearance", "backup"]
+  b: ["next"]
 };
 function knownPanels() {
-  return ["day", "routine", "next", "appearance", "backup"].concat(
-    EXTRA_PANELS.map((p) => p.id)
-  );
+  return ["day", "routine", "next"].concat(EXTRA_PANELS.map((p) => p.id));
 }
 function normaliseLayout(saved) {
   const known = knownPanels();
@@ -1192,7 +1095,7 @@ function NowTab({ now, routine, putRoutine, tasks, goFocus, reload, editing }) {
         value: dayStart,
         onChange: (e) => putRoutine(Object.assign({}, routine, { dayStart: Number(e.target.value) }))
       },
-      Array.from({ length: 12 }, (_, i) => i + 4).map((h) => /* @__PURE__ */ React.createElement("option", { key: h, value: h }, "Start ", h, ":00"))
+      Array.from({ length: 12 }, (_, i) => i + 4).filter((h) => h < dayEnd).map((h) => /* @__PURE__ */ React.createElement("option", { key: h, value: h }, "Start ", h, ":00"))
     ), /* @__PURE__ */ React.createElement(
       "select",
       {
@@ -1200,7 +1103,7 @@ function NowTab({ now, routine, putRoutine, tasks, goFocus, reload, editing }) {
         value: dayEnd,
         onChange: (e) => putRoutine(Object.assign({}, routine, { dayEnd: Number(e.target.value) }))
       },
-      Array.from({ length: 8 }, (_, i) => i + 18).map((h) => /* @__PURE__ */ React.createElement("option", { key: h, value: h }, "End ", h, ":00"))
+      Array.from({ length: 8 }, (_, i) => i + 16).filter((h) => h > dayStart && h <= 23).map((h) => /* @__PURE__ */ React.createElement("option", { key: h, value: h }, "End ", h, ":00"))
     ))),
     routine: () => /* @__PURE__ */ React.createElement("div", { className: "cp-card" }, routine.items.length === 0 && /* @__PURE__ */ React.createElement("div", { className: "cp-empty" }, "Nothing here yet. Add your first daily item below."), routine.items.map((it) => /* @__PURE__ */ React.createElement("div", { className: "cp-row", key: it.id }, /* @__PURE__ */ React.createElement(
       "button",
@@ -1209,7 +1112,20 @@ function NowTab({ now, routine, putRoutine, tasks, goFocus, reload, editing }) {
         onClick: () => toggle(it.id),
         "aria-label": it.label
       }
-    ), /* @__PURE__ */ React.createElement("span", { className: "cp-rowtext" + (done.includes(it.id) ? " done" : "") }, it.label), /* @__PURE__ */ React.createElement("button", { className: "cp-x", onClick: () => removeItem(it.id), "aria-label": "Remove" }, "\xD7"))), /* @__PURE__ */ React.createElement("div", { className: "cp-inline", style: { marginTop: 12 } }, /* @__PURE__ */ React.createElement(
+    ), /* @__PURE__ */ React.createElement(
+      Editable,
+      {
+        className: "cp-rowtext" + (done.includes(it.id) ? " done" : ""),
+        value: it.label,
+        onSave: (v) => putRoutine(
+          Object.assign({}, routine, {
+            items: routine.items.map(
+              (x) => x.id === it.id ? Object.assign({}, x, { label: v }) : x
+            )
+          })
+        )
+      }
+    ), /* @__PURE__ */ React.createElement("button", { className: "cp-x", onClick: () => removeItem(it.id), "aria-label": "Remove" }, "\xD7"))), /* @__PURE__ */ React.createElement("div", { className: "cp-inline", style: { marginTop: 12 } }, /* @__PURE__ */ React.createElement(
       "input",
       {
         className: "cp-input",
@@ -1237,87 +1153,12 @@ function NowTab({ now, routine, putRoutine, tasks, goFocus, reload, editing }) {
         s
       )));
     })()),
-    next: () => /* @__PURE__ */ React.createElement("div", { className: "cp-card" }, open.length === 0 && /* @__PURE__ */ React.createElement("div", { className: "cp-empty" }, "No open tasks. Capture one on the Tasks screen."), open.map((t) => /* @__PURE__ */ React.createElement("div", { className: "cp-row", key: t.id }, /* @__PURE__ */ React.createElement("span", { className: "cp-rowtext" }, t.text), /* @__PURE__ */ React.createElement("button", { className: "cp-min", onClick: () => goFocus(t.text, 25) }, "Start")))),
-    appearance: () => /* @__PURE__ */ React.createElement("div", { className: "cp-card" }, /* @__PURE__ */ React.createElement("div", { className: "cp-inline" }, [
-      ["auto", "Auto"],
-      ["light", "Light"],
-      ["dark", "Dark"]
-    ].map(([v, l]) => /* @__PURE__ */ React.createElement(
-      "button",
-      {
-        key: v,
-        className: "cp-btn" + ((routine.theme || "auto") === v ? " primary" : ""),
-        style: { flex: 1 },
-        onClick: () => putRoutine(Object.assign({}, routine, { theme: v }))
-      },
-      l
-    ))), /* @__PURE__ */ React.createElement("p", { className: "cp-note" }, "Auto goes light at 07:00 and dark at 17:30.")),
-    backup: () => /* @__PURE__ */ React.createElement("div", { className: "cp-card" }, /* @__PURE__ */ React.createElement("div", { className: "cp-inline" }, /* @__PURE__ */ React.createElement(
-      "button",
-      {
-        className: "cp-btn",
-        style: { flex: 1 },
-        onClick: async () => {
-          const b = await gatherAll();
-          downloadJSON(b, `control-panel-${today}.json`);
-          putRoutine(Object.assign({}, routine, { lastBackup: today }));
-          setMsg("Exported. Keep that file somewhere real.");
-        }
-      },
-      "Export file"
-    ), /* @__PURE__ */ React.createElement(
-      "button",
-      {
-        className: "cp-btn",
-        style: { flex: 1 },
-        onClick: () => fileRef.current && fileRef.current.click()
-      },
-      "Import"
-    )), /* @__PURE__ */ React.createElement(
-      "input",
-      {
-        ref: fileRef,
-        type: "file",
-        accept: "application/json,.json",
-        style: { display: "none" },
-        onChange: async (e) => {
-          const f = e.target.files && e.target.files[0];
-          if (!f) return;
-          try {
-            const text = await f.text();
-            await writeAll(JSON.parse(text));
-            await reload();
-            setMsg("Restored from file.");
-          } catch (err) {
-            setMsg("That file didn't parse. It needs to be an export from here.");
-          }
-          e.target.value = "";
-        }
-      }
-    ), msg && /* @__PURE__ */ React.createElement("p", { className: "cp-note" }, msg), (() => {
-      if (!routine.lastBackup)
-        return /* @__PURE__ */ React.createElement("p", { className: "cp-note" }, "No backup yet. Export once so nothing here is the only copy.");
-      const days = Math.round(
-        (new Date(today) - new Date(routine.lastBackup)) / 864e5
-      );
-      return /* @__PURE__ */ React.createElement(
-        "p",
-        {
-          className: "cp-note",
-          style: days > 14 ? { color: "var(--warn)" } : void 0
-        },
-        "Last export ",
-        routine.lastBackup,
-        days > 14 ? ` \u2014 ${days} days ago, worth doing again.` : "."
-      );
-    })())
+    next: () => /* @__PURE__ */ React.createElement("div", { className: "cp-card" }, open.length === 0 && /* @__PURE__ */ React.createElement("div", { className: "cp-empty" }, "No open tasks. Capture one on the Tasks screen."), open.map((t) => /* @__PURE__ */ React.createElement("div", { className: "cp-row", key: t.id }, /* @__PURE__ */ React.createElement("span", { className: "cp-rowtext" }, t.text), /* @__PURE__ */ React.createElement("button", { className: "cp-min", onClick: () => goFocus(t.text, 25) }, "Start"))))
   };
   const titles = {
     day: "Day remaining",
     routine: `Routine \xB7 ${done.length}/${routine.items.length}`,
-    next: "Up next",
-    appearance: "Appearance",
-    backup: "Backup"
+    next: "Up next"
   };
   EXTRA_PANELS.forEach((p) => {
     titles[p.id] = p.title;
@@ -1482,14 +1323,21 @@ Respond with ONLY a JSON array, no markdown, no preamble:
       onClick: () => patch(t.id, (x) => ({ ...x, done: !x.done })),
       "aria-label": t.text
     }
-  ), /* @__PURE__ */ React.createElement(
-    "span",
+  ), /* @__PURE__ */ React.createElement("span", { style: { flex: 1 } }, /* @__PURE__ */ React.createElement(
+    Editable,
     {
       className: "cp-rowtext" + (t.done ? " done" : ""),
+      value: t.text,
+      onSave: (v) => patch(t.id, (x) => ({ ...x, text: v }))
+    }
+  )), /* @__PURE__ */ React.createElement(
+    "button",
+    {
+      className: "cp-min",
       onClick: () => setOpenId(openId === t.id ? null : t.id),
-      style: { cursor: "pointer" }
+      "aria-label": "Steps"
     },
-    t.text
+    t.subs.length || "+"
   ), /* @__PURE__ */ React.createElement("button", { className: "cp-x", onClick: () => remove(t.id), "aria-label": "Delete" }, "\xD7")), (openId === t.id || t.subs.length > 0) && /* @__PURE__ */ React.createElement("div", { className: "cp-sub" }, t.subs.map((s) => /* @__PURE__ */ React.createElement("div", { className: "cp-subrow", key: s.id }, /* @__PURE__ */ React.createElement(
     "button",
     {
@@ -1503,7 +1351,19 @@ Respond with ONLY a JSON array, no markdown, no preamble:
       })),
       "aria-label": s.text
     }
-  ), /* @__PURE__ */ React.createElement("span", { className: "cp-subtext" + (s.done ? " done" : "") }, s.text), /* @__PURE__ */ React.createElement("button", { className: "cp-min", onClick: () => goFocus(s.text, s.minutes) }, s.minutes, "m"))), openId === t.id && /* @__PURE__ */ React.createElement("div", { style: { marginTop: 10 } }, /* @__PURE__ */ React.createElement(
+  ), /* @__PURE__ */ React.createElement("span", { style: { flex: 1 } }, /* @__PURE__ */ React.createElement(
+    Editable,
+    {
+      className: "cp-subtext" + (s.done ? " done" : ""),
+      value: s.text,
+      onSave: (v) => patch(t.id, (x) => ({
+        ...x,
+        subs: x.subs.map(
+          (y) => y.id === s.id ? { ...y, text: v } : y
+        )
+      }))
+    }
+  )), /* @__PURE__ */ React.createElement("button", { className: "cp-min", onClick: () => goFocus(s.text, s.minutes) }, s.minutes, "m"))), openId === t.id && /* @__PURE__ */ React.createElement("div", { style: { marginTop: 10 } }, /* @__PURE__ */ React.createElement(
     "button",
     {
       className: "cp-btn ghost",
@@ -1652,15 +1512,303 @@ function FocusTab({ target, setTarget, pendingMin, clearPending }) {
     left === 0 ? "Reset" : running ? "Pause" : "Start"
   ), /* @__PURE__ */ React.createElement("button", { className: "cp-btn", style: { flex: 1 }, onClick: () => pick(minutes) }, "Reset")), /* @__PURE__ */ React.createElement("p", { className: "cp-note" }, "The ring drains anticlockwise so you can see time going, not just read it. Keep this screen open \u2014 a backgrounded browser tab may run the countdown slow.")));
 }
+function Editable({ value, onSave, className, placeholder }) {
+  const [edit, setEdit] = useState(false);
+  const [draft, setDraft] = useState(value);
+  useEffect(() => {
+    setDraft(value);
+  }, [value]);
+  if (!edit)
+    return /* @__PURE__ */ React.createElement(
+      "span",
+      {
+        className,
+        onClick: () => setEdit(true),
+        title: "Tap to edit",
+        style: { cursor: "text" }
+      },
+      value || placeholder || "\u2014"
+    );
+  return /* @__PURE__ */ React.createElement(
+    "input",
+    {
+      className: "cp-input",
+      autoFocus: true,
+      value: draft,
+      style: { padding: "7px 9px", fontSize: 15 },
+      onChange: (e) => setDraft(e.target.value),
+      onBlur: () => {
+        const v = draft.trim();
+        if (v && v !== value) onSave(v);
+        setEdit(false);
+      },
+      onKeyDown: (e) => {
+        if (e.key === "Enter") {
+          const v = draft.trim();
+          if (v && v !== value) onSave(v);
+          setEdit(false);
+        }
+        if (e.key === "Escape") {
+          setDraft(value);
+          setEdit(false);
+        }
+      }
+    }
+  );
+}
+const EXTRA_SETTINGS = [
+  {
+    id: "sync",
+    title: "Cloud sync",
+    render: (p) => /* @__PURE__ */ React.createElement("div", { className: "cp-card" }, /* @__PURE__ */ React.createElement(SyncPanel, { reload: p.reload }))
+  },
+  {
+    id: "storage",
+    title: "Storage",
+    render: () => /* @__PURE__ */ React.createElement("div", { className: "cp-card" }, /* @__PURE__ */ React.createElement(StorageHealth, null))
+  },
+  { id: "api", title: "Task breakdown", render: () => /* @__PURE__ */ React.createElement(ApiKeyPanel, null) }
+];
+function SettingsTab({ routine, putRoutine, reload }) {
+  const [msg, setMsg] = useState("");
+  const fileRef = useRef(null);
+  const today = dayKey();
+  return /* @__PURE__ */ React.createElement("div", { className: "cp-two" }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("span", { className: "cp-label" }, "Appearance"), /* @__PURE__ */ React.createElement("div", { className: "cp-card" }, /* @__PURE__ */ React.createElement("div", { className: "cp-inline" }, [
+    ["auto", "Auto"],
+    ["light", "Light"],
+    ["dark", "Dark"]
+  ].map(([v, l]) => /* @__PURE__ */ React.createElement(
+    "button",
+    {
+      key: v,
+      className: "cp-btn" + ((routine.theme || "auto") === v ? " primary" : ""),
+      style: { flex: 1 },
+      onClick: () => putRoutine(Object.assign({}, routine, { theme: v }))
+    },
+    l
+  ))), /* @__PURE__ */ React.createElement("p", { className: "cp-note" }, "Auto goes light at 07:00 and dark at 17:30.")), /* @__PURE__ */ React.createElement("span", { className: "cp-label" }, "Backup"), /* @__PURE__ */ React.createElement("div", { className: "cp-card" }, /* @__PURE__ */ React.createElement("div", { className: "cp-inline" }, /* @__PURE__ */ React.createElement(
+    "button",
+    {
+      className: "cp-btn",
+      style: { flex: 1 },
+      onClick: async () => {
+        const b = await gatherAll();
+        downloadJSON(b, `control-panel-${today}.json`);
+        putRoutine(Object.assign({}, routine, { lastBackup: today }));
+        setMsg("Exported. Keep that file somewhere real.");
+      }
+    },
+    "Export file"
+  ), /* @__PURE__ */ React.createElement(
+    "button",
+    {
+      className: "cp-btn",
+      style: { flex: 1 },
+      onClick: () => fileRef.current && fileRef.current.click()
+    },
+    "Import"
+  )), /* @__PURE__ */ React.createElement(
+    "input",
+    {
+      ref: fileRef,
+      type: "file",
+      accept: "application/json,.json",
+      style: { display: "none" },
+      onChange: async (e) => {
+        const f = e.target.files && e.target.files[0];
+        if (!f) return;
+        try {
+          const text = await f.text();
+          await writeAll(JSON.parse(text));
+          await reload();
+          setMsg("Restored from file.");
+        } catch (err) {
+          setMsg("That file didn't parse. It needs to be an export from here.");
+        }
+        e.target.value = "";
+      }
+    }
+  ), msg && /* @__PURE__ */ React.createElement("p", { className: "cp-note" }, msg), (() => {
+    if (!routine.lastBackup)
+      return /* @__PURE__ */ React.createElement("p", { className: "cp-note" }, "No backup yet. Export once so nothing here is the only copy.");
+    const days = Math.round(
+      (new Date(today) - new Date(routine.lastBackup)) / 864e5
+    );
+    return /* @__PURE__ */ React.createElement(
+      "p",
+      {
+        className: "cp-note",
+        style: days > 14 ? { color: "var(--warn)" } : void 0
+      },
+      "Last export ",
+      routine.lastBackup,
+      days > 14 ? ` \u2014 ${days} days ago, worth doing again.` : "."
+    );
+  })())), /* @__PURE__ */ React.createElement("div", null, EXTRA_SETTINGS.map((p) => /* @__PURE__ */ React.createElement(React.Fragment, { key: p.id }, /* @__PURE__ */ React.createElement("span", { className: "cp-label" }, p.title), p.render({ reload }))), /* @__PURE__ */ React.createElement("p", { className: "cp-note" }, "Settings live here rather than on the Now screen so the dashboard stays about your day.")));
+}
+const LIBRARY = {
+  Chest: [
+    "Barbell bench press",
+    "Incline barbell press",
+    "Decline barbell press",
+    "Dumbbell bench press",
+    "Incline dumbbell press",
+    "Machine chest press",
+    "Pec deck",
+    "Cable fly (high to low)",
+    "Cable fly (low to high)",
+    "Dips (chest lean)",
+    "Push-up"
+  ],
+  Back: [
+    "Deadlift",
+    "Barbell row",
+    "Pendlay row",
+    "Dumbbell row",
+    "T-bar row",
+    "Chest-supported row",
+    "Seated cable row",
+    "Lat pulldown",
+    "Wide-grip pulldown",
+    "Neutral-grip pulldown",
+    "Pull-up",
+    "Chin-up",
+    "Straight-arm pulldown"
+  ],
+  Shoulders: [
+    "Overhead press",
+    "Dumbbell shoulder press",
+    "Arnold press",
+    "Machine shoulder press",
+    "Lateral raise",
+    "Cable lateral raise",
+    "Front raise",
+    "Rear delt fly",
+    "Reverse pec deck",
+    "Face pull",
+    "Barbell shrug",
+    "Dumbbell shrug"
+  ],
+  Biceps: [
+    "Barbell curl",
+    "EZ-bar curl",
+    "Dumbbell curl",
+    "Hammer curl",
+    "Incline dumbbell curl",
+    "Preacher curl",
+    "Cable curl",
+    "Concentration curl"
+  ],
+  Triceps: [
+    "Close-grip bench press",
+    "Triceps pushdown",
+    "Rope pushdown",
+    "Overhead triceps extension",
+    "Skull crusher",
+    "Dips (upright)",
+    "Triceps kickback"
+  ],
+  Quads: [
+    "Back squat",
+    "Front squat",
+    "Hack squat",
+    "Leg press",
+    "Goblet squat",
+    "Bulgarian split squat",
+    "Walking lunge",
+    "Step-up",
+    "Leg extension"
+  ],
+  "Hamstrings & Glutes": [
+    "Romanian deadlift",
+    "Stiff-leg deadlift",
+    "Lying leg curl",
+    "Seated leg curl",
+    "Hip thrust",
+    "Glute bridge",
+    "Good morning",
+    "Cable pull-through",
+    "Back extension"
+  ],
+  Calves: ["Standing calf raise", "Seated calf raise", "Leg press calf raise"],
+  Core: [
+    "Plank",
+    "Side plank",
+    "Hanging leg raise",
+    "Cable crunch",
+    "Ab wheel rollout",
+    "Pallof press",
+    "Dead bug",
+    "Russian twist"
+  ],
+  "Neck & postural": [
+    "Chin tuck",
+    "Neck curl",
+    "Neck extension",
+    "Neck harness extension",
+    "Prone Y-T-W",
+    "Band pull-apart",
+    "Wall slide",
+    "External rotation"
+  ],
+  "Full body": [
+    "Power clean",
+    "Clean and jerk",
+    "Snatch",
+    "Kettlebell swing",
+    "Farmer's carry",
+    "Sled push",
+    "Sled drag"
+  ],
+  Cardio: [
+    "Treadmill",
+    "Rowing machine",
+    "Stationary bike",
+    "Elliptical",
+    "Stairmaster",
+    "Jump rope",
+    "Incline walk"
+  ]
+};
+const SESSIONS = {
+  "All exercises": null,
+  Push: ["Chest", "Shoulders", "Triceps"],
+  Pull: ["Back", "Biceps"],
+  Legs: ["Quads", "Hamstrings & Glutes", "Calves"],
+  "Upper body": ["Chest", "Back", "Shoulders", "Biceps", "Triceps"],
+  "Lower body": ["Quads", "Hamstrings & Glutes", "Calves"],
+  Arms: ["Biceps", "Triceps"],
+  "Core & neck": ["Core", "Neck & postural"],
+  Conditioning: ["Full body", "Cardio"]
+};
+const LIBRARY_FLAT = Object.keys(LIBRARY).reduce(
+  (acc, g) => acc.concat(LIBRARY[g]),
+  []
+);
+function customExercises(gym) {
+  const own = gym.exercises || [];
+  return own.filter((e) => LIBRARY_FLAT.indexOf(e) === -1);
+}
+function groupsFor(session) {
+  const allow = SESSIONS[session];
+  const names = Object.keys(LIBRARY);
+  return allow ? names.filter((n) => allow.indexOf(n) !== -1) : names;
+}
+function setVolume(s) {
+  return s.weight * s.reps * (s.sets || 1);
+}
 function GymTab({ gym, putGym }) {
-  const [exercise, setExercise] = useState(gym.exercises[0] || "");
+  const [view, setView] = useState("log");
+  const [session, setSession] = useState("All exercises");
+  const [exercise, setExercise] = useState("Leg press");
   const [weight, setWeight] = useState("");
   const [reps, setReps] = useState("");
+  const [sets, setSets] = useState("1");
   const [custom, setCustom] = useState("");
   const [adding, setAdding] = useState(false);
-  const [view, setView] = useState("log");
   const today = dayKey();
   const todaySets = gym.sets.filter((s) => s.date === today);
+  const mine = customExercises(gym);
   const last = (() => {
     const prior = gym.sets.filter((s) => s.exercise === exercise && s.date !== today).sort((a, b) => a.date < b.date ? 1 : -1);
     if (!prior.length) return null;
@@ -1670,28 +1818,49 @@ function GymTab({ gym, putGym }) {
   const logSet = () => {
     const w = parseFloat(weight);
     const r = parseInt(reps, 10);
+    const n = Math.max(1, parseInt(sets, 10) || 1);
     if (!exercise || isNaN(w) || isNaN(r)) return;
     putGym({
       ...gym,
-      sets: [
-        ...gym.sets,
-        { id: uid(), date: today, exercise, weight: w, reps: r, t: Date.now() }
-      ]
+      sets: gym.sets.concat([
+        { id: uid(), date: today, exercise, weight: w, reps: r, sets: n, t: Date.now() }
+      ])
     });
     setReps("");
   };
   const addExercise = () => {
     const name = custom.trim();
-    if (!name || gym.exercises.includes(name)) return;
-    putGym({ ...gym, exercises: [...gym.exercises, name].sort() });
+    if (!name) return;
+    const exists = (gym.exercises || []).some(
+      (e) => e.toLowerCase() === name.toLowerCase()
+    );
+    const inLib = LIBRARY_FLAT.some((e) => e.toLowerCase() === name.toLowerCase());
+    if (!exists && !inLib) {
+      putGym({ ...gym, exercises: (gym.exercises || []).concat([name]) });
+    }
     setExercise(name);
     setCustom("");
     setAdding(false);
   };
+  const patchSet = (id, fields) => putGym({
+    ...gym,
+    sets: gym.sets.map((s) => s.id === id ? { ...s, ...fields } : s)
+  });
   const removeSet = (id) => putGym({ ...gym, sets: gym.sets.filter((s) => s.id !== id) });
   if (view === "progress")
     return /* @__PURE__ */ React.createElement(GymProgress, { gym, view, setView });
-  return /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { className: "cp-presets" }, /* @__PURE__ */ React.createElement("button", { className: "cp-btn sel", onClick: () => setView("log") }, "Log"), /* @__PURE__ */ React.createElement("button", { className: "cp-btn", onClick: () => setView("progress") }, "Progress")), /* @__PURE__ */ React.createElement("div", { className: "cp-two" }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("span", { className: "cp-label" }, "Log a set"), /* @__PURE__ */ React.createElement("div", { className: "cp-card" }, /* @__PURE__ */ React.createElement(
+  if (view === "history")
+    return /* @__PURE__ */ React.createElement(GymHistory, { gym, setView, patchSet, removeSet });
+  return /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { className: "cp-presets" }, /* @__PURE__ */ React.createElement("button", { className: "cp-btn sel", onClick: () => setView("log") }, "Log"), /* @__PURE__ */ React.createElement("button", { className: "cp-btn", onClick: () => setView("history") }, "History"), /* @__PURE__ */ React.createElement("button", { className: "cp-btn", onClick: () => setView("progress") }, "Progress")), /* @__PURE__ */ React.createElement("div", { className: "cp-two" }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("span", { className: "cp-label" }, "Log a set"), /* @__PURE__ */ React.createElement("div", { className: "cp-card" }, /* @__PURE__ */ React.createElement(
+    "select",
+    {
+      className: "cp-select",
+      value: session,
+      onChange: (e) => setSession(e.target.value),
+      style: { marginBottom: 8 }
+    },
+    Object.keys(SESSIONS).map((s) => /* @__PURE__ */ React.createElement("option", { key: s, value: s }, s))
+  ), /* @__PURE__ */ React.createElement(
     "select",
     {
       className: "cp-select",
@@ -1699,7 +1868,8 @@ function GymTab({ gym, putGym }) {
       onChange: (e) => setExercise(e.target.value),
       style: { marginBottom: 8 }
     },
-    gym.exercises.map((e) => /* @__PURE__ */ React.createElement("option", { key: e, value: e }, e))
+    mine.length > 0 && /* @__PURE__ */ React.createElement("optgroup", { label: "Added by you" }, mine.map((e) => /* @__PURE__ */ React.createElement("option", { key: e, value: e }, e))),
+    groupsFor(session).map((g) => /* @__PURE__ */ React.createElement("optgroup", { key: g, label: g }, LIBRARY[g].map((e) => /* @__PURE__ */ React.createElement("option", { key: e, value: e }, e))))
   ), !adding ? /* @__PURE__ */ React.createElement(
     "button",
     {
@@ -1712,40 +1882,146 @@ function GymTab({ gym, putGym }) {
     "input",
     {
       className: "cp-input",
+      autoFocus: true,
       placeholder: "Exercise name",
       value: custom,
       onChange: (e) => setCustom(e.target.value),
       onKeyDown: (e) => e.key === "Enter" && addExercise()
     }
-  ), /* @__PURE__ */ React.createElement("button", { className: "cp-btn", onClick: addExercise }, "Save")), /* @__PURE__ */ React.createElement("div", { className: "cp-grid2", style: { marginBottom: 10 } }, /* @__PURE__ */ React.createElement(
-    "input",
-    {
-      className: "cp-input",
-      type: "number",
-      inputMode: "decimal",
-      placeholder: "kg",
-      value: weight,
-      onChange: (e) => setWeight(e.target.value)
-    }
-  ), /* @__PURE__ */ React.createElement(
+  ), /* @__PURE__ */ React.createElement("button", { className: "cp-btn", onClick: addExercise }, "Save")), /* @__PURE__ */ React.createElement("div", { className: "cp-grid3", style: { marginBottom: 10 } }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("span", { className: "cp-ptitle" }, "Sets"), /* @__PURE__ */ React.createElement(
     "input",
     {
       className: "cp-input",
       type: "number",
       inputMode: "numeric",
-      placeholder: "reps",
+      min: "1",
+      value: sets,
+      onChange: (e) => setSets(e.target.value),
+      style: { marginTop: 5 }
+    }
+  )), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("span", { className: "cp-ptitle" }, "Weight kg"), /* @__PURE__ */ React.createElement(
+    "input",
+    {
+      className: "cp-input",
+      type: "number",
+      inputMode: "decimal",
+      value: weight,
+      onChange: (e) => setWeight(e.target.value),
+      style: { marginTop: 5 }
+    }
+  )), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("span", { className: "cp-ptitle" }, "Reps"), /* @__PURE__ */ React.createElement(
+    "input",
+    {
+      className: "cp-input",
+      type: "number",
+      inputMode: "numeric",
       value: reps,
       onChange: (e) => setReps(e.target.value),
-      onKeyDown: (e) => e.key === "Enter" && logSet()
+      onKeyDown: (e) => e.key === "Enter" && logSet(),
+      style: { marginTop: 5 }
     }
-  )), /* @__PURE__ */ React.createElement("button", { className: "cp-btn primary", style: { width: "100%" }, onClick: logSet }, "Log set"), last && /* @__PURE__ */ React.createElement("div", { className: "cp-last" }, "Last ", last[0].date, " \xB7 ", last.map((s) => `${s.weight}\xD7${s.reps}`).join("  ")))), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("span", { className: "cp-label" }, "Today \xB7 ", todaySets.length, " sets"), /* @__PURE__ */ React.createElement("div", { className: "cp-card" }, todaySets.length === 0 && /* @__PURE__ */ React.createElement("div", { className: "cp-empty" }, "Nothing logged today."), todaySets.map((s, i) => /* @__PURE__ */ React.createElement("div", { className: "cp-setrow", key: s.id }, /* @__PURE__ */ React.createElement("span", { className: "cp-setnum" }, pad(i + 1)), /* @__PURE__ */ React.createElement("span", { style: { flex: 1, marginLeft: 12 } }, s.exercise), /* @__PURE__ */ React.createElement("span", { className: "cp-setnum", style: { marginRight: 10 } }, s.weight, " \xD7 ", s.reps), /* @__PURE__ */ React.createElement("button", { className: "cp-x", onClick: () => removeSet(s.id), "aria-label": "Remove" }, "\xD7")))))));
+  ))), /* @__PURE__ */ React.createElement("button", { className: "cp-btn primary", style: { width: "100%" }, onClick: logSet }, "Log"), last && /* @__PURE__ */ React.createElement("div", { className: "cp-last" }, "Last ", last[0].date, " \xB7", " ", last.map((s) => `${s.sets || 1}\xD7${s.weight}\xD7${s.reps}`).join("   ")))), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("span", { className: "cp-label" }, "Today \xB7 ", todaySets.reduce((n, s) => n + (s.sets || 1), 0), " sets"), /* @__PURE__ */ React.createElement("div", { className: "cp-card" }, todaySets.length === 0 && /* @__PURE__ */ React.createElement("div", { className: "cp-empty" }, "Nothing logged today."), todaySets.map((s) => /* @__PURE__ */ React.createElement(SetRow, { key: s.id, s, patchSet, removeSet }))))));
+}
+function SetRow({ s, patchSet, removeSet, showDate }) {
+  const [edit, setEdit] = useState(false);
+  const [n, setN] = useState(String(s.sets || 1));
+  const [w, setW] = useState(String(s.weight));
+  const [r, setR] = useState(String(s.reps));
+  const save = () => {
+    const nn = Math.max(1, parseInt(n, 10) || 1);
+    const ww = parseFloat(w);
+    const rr = parseInt(r, 10);
+    if (isNaN(ww) || isNaN(rr)) return setEdit(false);
+    patchSet(s.id, { sets: nn, weight: ww, reps: rr });
+    setEdit(false);
+  };
+  if (edit)
+    return /* @__PURE__ */ React.createElement("div", { className: "cp-setrow", style: { gap: 6 } }, /* @__PURE__ */ React.createElement(
+      "input",
+      {
+        className: "cp-input",
+        style: { width: 54, padding: 8 },
+        value: n,
+        onChange: (e) => setN(e.target.value)
+      }
+    ), /* @__PURE__ */ React.createElement(
+      "input",
+      {
+        className: "cp-input",
+        style: { width: 68, padding: 8 },
+        value: w,
+        onChange: (e) => setW(e.target.value)
+      }
+    ), /* @__PURE__ */ React.createElement(
+      "input",
+      {
+        className: "cp-input",
+        style: { width: 62, padding: 8 },
+        value: r,
+        onChange: (e) => setR(e.target.value),
+        onKeyDown: (e) => e.key === "Enter" && save()
+      }
+    ), /* @__PURE__ */ React.createElement("button", { className: "cp-btn", style: { padding: "8px 10px" }, onClick: save }, "OK"));
+  return /* @__PURE__ */ React.createElement("div", { className: "cp-setrow" }, /* @__PURE__ */ React.createElement(
+    "span",
+    {
+      style: { flex: 1, cursor: "pointer" },
+      onClick: () => setEdit(true),
+      title: "Tap to edit"
+    },
+    s.exercise,
+    showDate && /* @__PURE__ */ React.createElement("span", { className: "cp-setnum" }, " \xB7 ", s.date.slice(5))
+  ), /* @__PURE__ */ React.createElement("span", { className: "cp-setnum", style: { marginRight: 10 } }, s.sets || 1, " \xD7 ", s.weight, " \xD7 ", s.reps), /* @__PURE__ */ React.createElement("button", { className: "cp-x", onClick: () => removeSet(s.id), "aria-label": "Remove" }, "\xD7"));
+}
+function GymHistory({ gym, setView, patchSet, removeSet }) {
+  const [openDay, setOpenDay] = useState(dayKey());
+  const [filter, setFilter] = useState("");
+  const rows = filter ? gym.sets.filter((s) => s.exercise.toLowerCase().includes(filter.toLowerCase())) : gym.sets;
+  const byDay = {};
+  rows.forEach((s) => {
+    (byDay[s.date] = byDay[s.date] || []).push(s);
+  });
+  const days = Object.keys(byDay).sort().reverse();
+  return /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { className: "cp-presets" }, /* @__PURE__ */ React.createElement("button", { className: "cp-btn", onClick: () => setView("log") }, "Log"), /* @__PURE__ */ React.createElement("button", { className: "cp-btn sel", onClick: () => setView("history") }, "History"), /* @__PURE__ */ React.createElement("button", { className: "cp-btn", onClick: () => setView("progress") }, "Progress")), /* @__PURE__ */ React.createElement(
+    "input",
+    {
+      className: "cp-input",
+      placeholder: "Filter by exercise",
+      value: filter,
+      onChange: (e) => setFilter(e.target.value),
+      style: { marginBottom: 16 }
+    }
+  ), /* @__PURE__ */ React.createElement("span", { className: "cp-label" }, days.length, " session", days.length === 1 ? "" : "s"), days.length === 0 && /* @__PURE__ */ React.createElement("div", { className: "cp-empty" }, filter ? "No sets match that." : "Nothing logged yet."), days.map((d) => {
+    const list = byDay[d];
+    const vol = Math.round(list.reduce((n, s) => n + setVolume(s), 0));
+    const count = list.reduce((n, s) => n + (s.sets || 1), 0);
+    const open = openDay === d;
+    return /* @__PURE__ */ React.createElement("div", { className: "cp-panel", key: d }, /* @__PURE__ */ React.createElement(
+      "div",
+      {
+        className: "cp-phead",
+        style: { cursor: "pointer" },
+        onClick: () => setOpenDay(open ? null : d)
+      },
+      /* @__PURE__ */ React.createElement("span", { className: "cp-ptitle" }, open ? "\u25BE" : "\u25B8", " ", d),
+      /* @__PURE__ */ React.createElement("span", { className: "cp-setnum" }, count, " sets \xB7 ", vol, " kg")
+    ), open && /* @__PURE__ */ React.createElement("div", { className: "cp-card" }, list.map((s) => /* @__PURE__ */ React.createElement(
+      SetRow,
+      {
+        key: s.id,
+        s,
+        patchSet,
+        removeSet
+      }
+    ))));
+  }));
 }
 function GymProgress({ gym, setView }) {
   const [pick, setPick] = useState("__all__");
   const rows = pick === "__all__" ? gym.sets : gym.sets.filter((s) => s.exercise === pick);
   const byDay = {};
   for (const s of rows) {
-    byDay[s.date] = (byDay[s.date] || 0) + s.weight * s.reps;
+    byDay[s.date] = (byDay[s.date] || 0) + setVolume(s);
   }
   const days = Object.keys(byDay).sort().map((d) => ({ date: d, vol: Math.round(byDay[d]) }));
   const win = days.slice(-12);
@@ -2024,6 +2300,74 @@ function StorageHealth() {
   ), /* @__PURE__ */ React.createElement("span", { className: "cp-rowtext", style: { fontSize: 14 } }, children));
   return /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement(Row, { ok: state.persisted }, state.persisted ? "Browser marked this data as persistent" : "Not marked persistent \u2014 the browser may evict it"), /* @__PURE__ */ React.createElement(Row, { ok: state.mirror }, state.mirror ? "Second copy in IndexedDB" : "No mirror copy yet"), /* @__PURE__ */ React.createElement(Row, { ok: state.standalone }, state.standalone ? "Running as an installed app" : "Running in a browser tab \u2014 install to the home screen"), /* @__PURE__ */ React.createElement("p", { className: "cp-note" }, state.quota != null ? `About ${state.quota} KB stored. ` : "", "None of this is a guarantee. The exported file is the only copy that survives a lost phone."));
 }
+function mdInline(text, keyBase) {
+  const out = [];
+  const re = /(\*\*[^*]+\*\*|\*[^*]+\*|`[^`]+`)/g;
+  let last = 0;
+  let m;
+  let i = 0;
+  while ((m = re.exec(text)) !== null) {
+    if (m.index > last) out.push(text.slice(last, m.index));
+    const tok = m[0];
+    const key = keyBase + "-" + i++;
+    if (tok.startsWith("**"))
+      out.push(/* @__PURE__ */ React.createElement("strong", { key }, tok.slice(2, -2)));
+    else if (tok.startsWith("`"))
+      out.push(
+        /* @__PURE__ */ React.createElement("code", { key, className: "cp-code" }, tok.slice(1, -1))
+      );
+    else out.push(/* @__PURE__ */ React.createElement("em", { key }, tok.slice(1, -1)));
+    last = m.index + tok.length;
+  }
+  if (last < text.length) out.push(text.slice(last));
+  return out;
+}
+function Markdown({ text }) {
+  const lines = String(text).split(/\r?\n/);
+  const blocks = [];
+  let list = null;
+  const flush = () => {
+    if (list) {
+      blocks.push(
+        list.ordered ? /* @__PURE__ */ React.createElement("ol", { key: "l" + blocks.length, className: "cp-md-list" }, list.items.map((it, i) => /* @__PURE__ */ React.createElement("li", { key: i }, mdInline(it, "o" + i)))) : /* @__PURE__ */ React.createElement("ul", { key: "l" + blocks.length, className: "cp-md-list" }, list.items.map((it, i) => /* @__PURE__ */ React.createElement("li", { key: i }, mdInline(it, "u" + i))))
+      );
+      list = null;
+    }
+  };
+  lines.forEach((raw, idx) => {
+    const line = raw.trimEnd();
+    const bullet = /^\s*[-*\u2022]\s+(.*)$/.exec(line);
+    const number = /^\s*\d+[.)]\s+(.*)$/.exec(line);
+    const heading = /^\s*#{1,4}\s+(.*)$/.exec(line);
+    if (bullet) {
+      if (!list || list.ordered) {
+        flush();
+        list = { ordered: false, items: [] };
+      }
+      list.items.push(bullet[1]);
+      return;
+    }
+    if (number) {
+      if (!list || !list.ordered) {
+        flush();
+        list = { ordered: true, items: [] };
+      }
+      list.items.push(number[1]);
+      return;
+    }
+    flush();
+    if (heading) {
+      blocks.push(
+        /* @__PURE__ */ React.createElement("p", { key: idx, className: "cp-md-h" }, mdInline(heading[1], "h" + idx))
+      );
+      return;
+    }
+    if (!line.trim()) return;
+    blocks.push(/* @__PURE__ */ React.createElement("p", { key: idx, className: "cp-md-p" }, mdInline(line, "p" + idx)));
+  });
+  flush();
+  return /* @__PURE__ */ React.createElement(React.Fragment, null, blocks);
+}
 const PROMPTS = [
   "What did I lift last session?",
   "Am I trending up or down?",
@@ -2088,7 +2432,7 @@ function ChatTab() {
       setBusy(false);
     }
   };
-  return /* @__PURE__ */ React.createElement("div", { className: "cp-narrow" }, msgs.length === 0 && /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("span", { className: "cp-label" }, "Ask about your data"), /* @__PURE__ */ React.createElement("div", { className: "cp-sugg" }, PROMPTS.map((p) => /* @__PURE__ */ React.createElement("button", { key: p, className: "cp-chip", onClick: () => ask(p) }, p))), /* @__PURE__ */ React.createElement("p", { className: "cp-note" }, "It can read your tasks, routine, gym log, goals and upcoming events. It can't change anything yet. Conversations aren't saved \u2014 closing the app clears the thread.")), /* @__PURE__ */ React.createElement("div", { className: "cp-chat" }, msgs.map((m, i) => /* @__PURE__ */ React.createElement("div", { key: i, className: "cp-msg " + (m.role === "user" ? "me" : "ai") }, m.content)), busy && /* @__PURE__ */ React.createElement("div", { className: "cp-msg wait" }, "Thinking\u2026"), /* @__PURE__ */ React.createElement("div", { ref: tail })), err && /* @__PURE__ */ React.createElement("p", { className: "cp-note", style: { color: "var(--warn)" } }, err), /* @__PURE__ */ React.createElement("div", { className: "cp-chatbar" }, /* @__PURE__ */ React.createElement(
+  return /* @__PURE__ */ React.createElement("div", { className: "cp-narrow" }, msgs.length === 0 && /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("span", { className: "cp-label" }, "Ask about your data"), /* @__PURE__ */ React.createElement("div", { className: "cp-sugg" }, PROMPTS.map((p) => /* @__PURE__ */ React.createElement("button", { key: p, className: "cp-chip", onClick: () => ask(p) }, p))), /* @__PURE__ */ React.createElement("p", { className: "cp-note" }, "It can read your tasks, routine, gym log, goals and upcoming events. It can't change anything yet. Conversations aren't saved \u2014 closing the app clears the thread.")), /* @__PURE__ */ React.createElement("div", { className: "cp-chat" }, msgs.map((m, i) => /* @__PURE__ */ React.createElement("div", { key: i, className: "cp-msg " + (m.role === "user" ? "me" : "ai") }, m.role === "user" ? m.content : /* @__PURE__ */ React.createElement(Markdown, { text: m.content }))), busy && /* @__PURE__ */ React.createElement("div", { className: "cp-msg wait" }, "Thinking\u2026"), /* @__PURE__ */ React.createElement("div", { ref: tail })), err && /* @__PURE__ */ React.createElement("p", { className: "cp-note", style: { color: "var(--warn)" } }, err), /* @__PURE__ */ React.createElement("div", { className: "cp-chatbar" }, /* @__PURE__ */ React.createElement(
     "input",
     {
       className: "cp-input",
