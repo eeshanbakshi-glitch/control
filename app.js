@@ -487,6 +487,18 @@ const CSS = `
 
 .cp-note { font-size:12px; color:var(--dim); line-height:1.5; margin-top:6px; }
 
+/* chat */
+.cp-chat { display:flex; flex-direction:column; gap:14px; margin-bottom:16px; }
+.cp-msg { max-width:88%; padding:12px 15px; border-radius:var(--r); font-size:15px;
+  line-height:1.55; white-space:pre-wrap; }
+.cp-msg.me { align-self:flex-end; background:var(--signal); color:var(--onsignal); }
+.cp-msg.ai { align-self:flex-start; background:var(--panel); border:1px solid var(--line);
+  box-shadow:var(--shadow); }
+.cp-msg.wait { align-self:flex-start; color:var(--dim); font-style:italic; }
+.cp-chatbar { display:flex; gap:8px; position:sticky; bottom:0; padding:10px 0;
+  background:var(--ground); }
+.cp-sugg { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:18px; }
+
 /* modular panels */
 .cp-panel { margin-bottom: 20px; }
 .cp-phead { display:flex; align-items:center; justify-content:space-between;
@@ -781,7 +793,7 @@ function ControlPanel() {
     ["gym", "Gym"],
     ["goals", "Goals"],
     ["cal", "Upcoming"]
-  ];
+  ].concat(EXTRA_TABS.map((t) => [t.id, t.title]));
   const openTasks = tasks.items.filter((t) => !t.done).length;
   const openGoals = goals.long.filter((g) => !g.done).length + goals.short.filter((g) => !g.done).length;
   const counts = { tasks: openTasks, goals: openGoals };
@@ -831,7 +843,9 @@ function ControlPanel() {
       pendingMin,
       clearPending: () => setPendingMin(null)
     }
-  ), ready && tab === "gym" && /* @__PURE__ */ React.createElement(GymTab, { gym, putGym }), ready && tab === "goals" && /* @__PURE__ */ React.createElement(GoalsTab, { goals, putGoals }), ready && tab === "cal" && /* @__PURE__ */ React.createElement(CalTab, { cal, putCal }))), ready && veil && /* @__PURE__ */ React.createElement(
+  ), ready && tab === "gym" && /* @__PURE__ */ React.createElement(GymTab, { gym, putGym }), ready && tab === "goals" && /* @__PURE__ */ React.createElement(GoalsTab, { goals, putGoals }), ready && tab === "cal" && /* @__PURE__ */ React.createElement(CalTab, { cal, putCal }), ready && EXTRA_TABS.map(
+    (t) => tab === t.id ? /* @__PURE__ */ React.createElement(React.Fragment, { key: t.id }, t.render()) : null
+  ))), ready && veil && /* @__PURE__ */ React.createElement(
     Launch,
     {
       goals,
@@ -1070,9 +1084,10 @@ const EXTRA_PANELS = [
     render: () => /* @__PURE__ */ React.createElement("div", { className: "cp-card" }, /* @__PURE__ */ React.createElement(StorageHealth, null))
   }
 ];
+const EXTRA_TABS = [{ id: "chat", title: "Chat", render: () => /* @__PURE__ */ React.createElement(ChatTab, null) }];
 const DEFAULT_LAYOUT = {
   a: ["day", "routine"],
-  b: ["next", "appearance", "sync", "storage", "api", "backup"]
+  b: ["next", "appearance", "backup"]
 };
 function knownPanels() {
   return ["day", "routine", "next", "appearance", "backup"].concat(
@@ -1975,7 +1990,7 @@ function ApiKeyPanel() {
         else localStorage.removeItem("cp:apikey");
       }
     }
-  ), /* @__PURE__ */ React.createElement("p", { className: "cp-note" }, 'Only needed for "Break into steps" on the Tasks screen. Stored in this browser and sent straight to Anthropic. Everything else works without it.'));
+  ), /* @__PURE__ */ React.createElement("p", { className: "cp-note" }, 'Only needed for "Break into steps" on the Tasks screen. Separate from the chat, which uses your Grok key on the server.'));
 }
 function StorageHealth() {
   const [state, setState] = useState({ checked: false });
@@ -2008,6 +2023,93 @@ function StorageHealth() {
     }
   ), /* @__PURE__ */ React.createElement("span", { className: "cp-rowtext", style: { fontSize: 14 } }, children));
   return /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement(Row, { ok: state.persisted }, state.persisted ? "Browser marked this data as persistent" : "Not marked persistent \u2014 the browser may evict it"), /* @__PURE__ */ React.createElement(Row, { ok: state.mirror }, state.mirror ? "Second copy in IndexedDB" : "No mirror copy yet"), /* @__PURE__ */ React.createElement(Row, { ok: state.standalone }, state.standalone ? "Running as an installed app" : "Running in a browser tab \u2014 install to the home screen"), /* @__PURE__ */ React.createElement("p", { className: "cp-note" }, state.quota != null ? `About ${state.quota} KB stored. ` : "", "None of this is a guarantee. The exported file is the only copy that survives a lost phone."));
+}
+const PROMPTS = [
+  "What did I lift last session?",
+  "Am I trending up or down?",
+  "What's left today?",
+  "What am I avoiding?"
+];
+async function buildContext() {
+  const b = await gatherAll();
+  const days = Object.keys(b.routine.log).sort().slice(-30);
+  const log = {};
+  days.forEach((d) => {
+    log[d] = b.routine.log[d];
+  });
+  return JSON.stringify({
+    today: dayKey(),
+    tasks: b.tasks.items,
+    routine: { items: b.routine.items, log },
+    gym: { exercises: b.gym.exercises, sets: b.gym.sets.slice(-150) },
+    goals: b.goals,
+    upcoming: b.cal.events.filter((e) => e.ts > Date.now()).slice(0, 20)
+  });
+}
+function ChatTab() {
+  const [msgs, setMsgs] = useState([]);
+  const [text, setText] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
+  const tail = useRef(null);
+  useEffect(() => {
+    if (tail.current && tail.current.scrollIntoView)
+      tail.current.scrollIntoView({ behavior: "smooth", block: "end" });
+  }, [msgs, busy]);
+  const ask = async (question) => {
+    const q = (question || text).trim();
+    if (!q || busy) return;
+    const client = Sync.init();
+    if (!client) {
+      setErr("Set up cloud sync first \u2014 the chat runs through your Supabase project.");
+      return;
+    }
+    const user = await Sync.user();
+    if (!user) {
+      setErr("Sign in under Now \u2192 Cloud sync first.");
+      return;
+    }
+    const next = msgs.concat([{ role: "user", content: q }]);
+    setMsgs(next);
+    setText("");
+    setBusy(true);
+    setErr("");
+    try {
+      const context = await buildContext();
+      const { data, error } = await client.functions.invoke("chat", {
+        body: { messages: next, context }
+      });
+      if (error) throw error;
+      if (data && data.error) throw new Error(data.error);
+      setMsgs(next.concat([{ role: "assistant", content: data.reply || "(empty reply)" }]));
+    } catch (e) {
+      setErr(e && e.message || "Request failed");
+    } finally {
+      setBusy(false);
+    }
+  };
+  return /* @__PURE__ */ React.createElement("div", { className: "cp-narrow" }, msgs.length === 0 && /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("span", { className: "cp-label" }, "Ask about your data"), /* @__PURE__ */ React.createElement("div", { className: "cp-sugg" }, PROMPTS.map((p) => /* @__PURE__ */ React.createElement("button", { key: p, className: "cp-chip", onClick: () => ask(p) }, p))), /* @__PURE__ */ React.createElement("p", { className: "cp-note" }, "It can read your tasks, routine, gym log, goals and upcoming events. It can't change anything yet. Conversations aren't saved \u2014 closing the app clears the thread.")), /* @__PURE__ */ React.createElement("div", { className: "cp-chat" }, msgs.map((m, i) => /* @__PURE__ */ React.createElement("div", { key: i, className: "cp-msg " + (m.role === "user" ? "me" : "ai") }, m.content)), busy && /* @__PURE__ */ React.createElement("div", { className: "cp-msg wait" }, "Thinking\u2026"), /* @__PURE__ */ React.createElement("div", { ref: tail })), err && /* @__PURE__ */ React.createElement("p", { className: "cp-note", style: { color: "var(--warn)" } }, err), /* @__PURE__ */ React.createElement("div", { className: "cp-chatbar" }, /* @__PURE__ */ React.createElement(
+    "input",
+    {
+      className: "cp-input",
+      placeholder: "Ask something",
+      value: text,
+      onChange: (e) => setText(e.target.value),
+      onKeyDown: (e) => e.key === "Enter" && ask(),
+      disabled: busy
+    }
+  ), /* @__PURE__ */ React.createElement("button", { className: "cp-btn primary", onClick: () => ask(), disabled: busy }, "Send")), msgs.length > 0 && /* @__PURE__ */ React.createElement(
+    "button",
+    {
+      className: "cp-btn quiet",
+      style: { marginTop: 10 },
+      onClick: () => {
+        setMsgs([]);
+        setErr("");
+      }
+    },
+    "Clear thread"
+  ));
 }
 const root = ReactDOM.createRoot(document.getElementById("root"));
 root.render(React.createElement(ControlPanel));
