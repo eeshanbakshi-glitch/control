@@ -4,6 +4,7 @@ const K_ROUTINE = "cp:routine";
 const K_GYM = "cp:gym";
 const K_GOALS = "cp:goals";
 const K_CAL = "cp:cal";
+const K_JOBS = "cp:jobs";
 const pad = (n) => String(n).padStart(2, "0");
 const dayKey = (d = /* @__PURE__ */ new Date()) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 const uid = () => Math.random().toString(36).slice(2, 9);
@@ -99,21 +100,23 @@ async function saveKey(key, value) {
   if (typeof Sync !== "undefined") Sync.schedule();
 }
 async function gatherAll() {
-  const [tasks, routine, gym, goals, cal] = await Promise.all([
+  const [tasks, routine, gym, goals, cal, jobs] = await Promise.all([
     loadKey(K_TASKS, DEFAULT_TASKS),
     loadKey(K_ROUTINE, DEFAULT_ROUTINE),
     loadKey(K_GYM, DEFAULT_GYM),
     loadKey(K_GOALS, DEFAULT_GOALS),
-    loadKey(K_CAL, DEFAULT_CAL)
+    loadKey(K_CAL, DEFAULT_CAL),
+    loadKey(K_JOBS, DEFAULT_JOBS)
   ]);
   return {
-    version: 2,
+    version: 3,
     exported: (/* @__PURE__ */ new Date()).toISOString(),
     tasks,
     routine,
     gym,
     goals,
-    cal
+    cal,
+    jobs
   };
 }
 async function writeAll(bundle) {
@@ -123,7 +126,8 @@ async function writeAll(bundle) {
     saveKey(K_ROUTINE, bundle.routine || DEFAULT_ROUTINE),
     saveKey(K_GYM, bundle.gym || DEFAULT_GYM),
     saveKey(K_GOALS, bundle.goals || DEFAULT_GOALS),
-    saveKey(K_CAL, bundle.cal || DEFAULT_CAL)
+    saveKey(K_CAL, bundle.cal || DEFAULT_CAL),
+    saveKey(K_JOBS, bundle.jobs || DEFAULT_JOBS)
   ]);
 }
 function downloadJSON(obj, name) {
@@ -172,6 +176,7 @@ const SUGGESTED = [
 ];
 const DEFAULT_GOALS = { long: [], short: [] };
 const DEFAULT_CAL = { events: [], imported: null };
+const DEFAULT_JOBS = { items: [] };
 function parseICS(input) {
   const text = String(input).replace(/\r?\n[ \t]/g, "");
   const out = [];
@@ -480,6 +485,18 @@ const CSS = `
   flex:none; font-variant-numeric:tabular-nums; padding-top:2px; }
 .cp-evt { flex:1; font-size:14px; line-height:1.35; }
 
+.cp-job { background:var(--panel); border:1px solid var(--line);
+  border-radius:var(--r); padding:15px; margin-bottom:12px;
+  box-shadow:var(--shadow); }
+.cp-job.due { border-color:var(--signal); }
+.cp-jobtop { display:flex; align-items:flex-start; gap:10px; }
+.cp-jobco { font-size:16px; font-weight:600; display:block; line-height:1.3; }
+.cp-jobrole { font-size:14px; color:var(--dim); display:block; margin-top:3px; }
+.cp-jobmeta { font-family:var(--mono); font-size:11px; color:var(--dim);
+  margin-top:8px; }
+.cp-jobnote { display:block; font-size:13px; color:var(--dim); margin-top:10px;
+  line-height:1.45; }
+
 .cp-chips { display:flex; flex-wrap:wrap; gap:6px; margin-top:11px; }
 .cp-chip { background:transparent; border:1px dashed var(--line); color:var(--dim);
   border-radius:999px; padding:6px 11px; font-size:12.5px; cursor:pointer;
@@ -737,24 +754,27 @@ function ControlPanel() {
   const [gym, setGym] = useState(DEFAULT_GYM);
   const [goals, setGoals] = useState(DEFAULT_GOALS);
   const [cal, setCal] = useState(DEFAULT_CAL);
+  const [jobs, setJobs] = useState(DEFAULT_JOBS);
   const [veil, setVeil] = useState(true);
   const [editing, setEditing] = useState(false);
   const [now, setNow] = useState(/* @__PURE__ */ new Date());
   const [focusTarget, setFocusTarget] = useState(null);
   const [pendingMin, setPendingMin] = useState(null);
   const loadAll = useCallback(async () => {
-    const [t, r, g, go, c] = await Promise.all([
+    const [t, r, g, go, c, jb] = await Promise.all([
       loadKey(K_TASKS, DEFAULT_TASKS),
       loadKey(K_ROUTINE, DEFAULT_ROUTINE),
       loadKey(K_GYM, DEFAULT_GYM),
       loadKey(K_GOALS, DEFAULT_GOALS),
-      loadKey(K_CAL, DEFAULT_CAL)
+      loadKey(K_CAL, DEFAULT_CAL),
+      loadKey(K_JOBS, DEFAULT_JOBS)
     ]);
     setTasks(t);
     setRoutine(r);
     setGym(g);
     setGoals(go);
     setCal(c);
+    setJobs(jb);
     setReady(true);
   }, []);
   useEffect(() => {
@@ -786,6 +806,10 @@ function ControlPanel() {
     setCal(next);
     saveKey(K_CAL, next);
   }, []);
+  const putJobs = useCallback((next) => {
+    setJobs(next);
+    saveKey(K_JOBS, next);
+  }, []);
   const goFocus = (label, minutes) => {
     setFocusTarget(label);
     setPendingMin(minutes || null);
@@ -802,11 +826,12 @@ function ControlPanel() {
     ["tasks", "Tasks"],
     ["focus", "Focus"],
     ["gym", "Gym"],
-    ["goals", "Goals"]
+    ["goals", "Goals"],
+    ["jobs", "Jobs"]
   ].concat(EXTRA_TABS.map((t) => [t.id, t.title])).concat([["settings", "Settings"]]);
   const openTasks = tasks.items.filter((t) => !t.done).length;
   const openGoals = goals.long.filter((g) => !g.done).length + goals.short.filter((g) => !g.done).length;
-  const counts = { tasks: openTasks, goals: openGoals };
+  const counts = { tasks: openTasks, goals: openGoals, jobs: dueJobs(jobs).length };
   return /* @__PURE__ */ React.createElement("div", { className: "cp" + (light ? " light" : "") }, /* @__PURE__ */ React.createElement("style", null, CSS), /* @__PURE__ */ React.createElement("aside", { className: "cp-side" }, /* @__PURE__ */ React.createElement("div", { className: "cp-brand" }, "Control Panel"), TABS.map(([id, label]) => /* @__PURE__ */ React.createElement(
     "button",
     {
@@ -841,7 +866,9 @@ function ControlPanel() {
       routine,
       putRoutine,
       tasks,
+      jobs,
       goFocus,
+      setTab,
       reload: loadAll,
       editing
     }
@@ -853,7 +880,7 @@ function ControlPanel() {
       pendingMin,
       clearPending: () => setPendingMin(null)
     }
-  ), ready && tab === "gym" && /* @__PURE__ */ React.createElement(GymTab, { gym, putGym }), ready && tab === "goals" && /* @__PURE__ */ React.createElement(GoalsTab, { goals, putGoals }), ready && tab === "settings" && /* @__PURE__ */ React.createElement(SettingsTab, { routine, putRoutine, reload: loadAll }), ready && EXTRA_TABS.map(
+  ), ready && tab === "gym" && /* @__PURE__ */ React.createElement(GymTab, { gym, putGym }), ready && tab === "goals" && /* @__PURE__ */ React.createElement(GoalsTab, { goals, putGoals }), ready && tab === "jobs" && /* @__PURE__ */ React.createElement(JobsTab, { jobs, putJobs }), ready && tab === "settings" && /* @__PURE__ */ React.createElement(SettingsTab, { routine, putRoutine, reload: loadAll }), ready && EXTRA_TABS.map(
     (t) => tab === t.id ? /* @__PURE__ */ React.createElement(React.Fragment, { key: t.id }, t.render()) : null
   ))), ready && veil && /* @__PURE__ */ React.createElement(
     Launch,
@@ -1010,10 +1037,12 @@ const EXTRA_PANELS = [];
 const EXTRA_TABS = [{ id: "chat", title: "Chat", render: () => /* @__PURE__ */ React.createElement(ChatTab, null) }];
 const DEFAULT_LAYOUT = {
   a: ["day", "routine"],
-  b: ["next"]
+  b: ["next", "followup"]
 };
 function knownPanels() {
-  return ["day", "routine", "next"].concat(EXTRA_PANELS.map((p) => p.id));
+  return ["day", "routine", "next", "followup"].concat(
+    EXTRA_PANELS.map((p) => p.id)
+  );
 }
 function normaliseLayout(saved) {
   const known = knownPanels();
@@ -1043,7 +1072,7 @@ function shiftIn(layout, id, col, delta) {
   arr.splice(j, 0, id);
   return Object.assign({}, layout, { [col]: arr });
 }
-function NowTab({ now, routine, putRoutine, tasks, goFocus, reload, editing }) {
+function NowTab({ now, routine, putRoutine, tasks, jobs, goFocus, setTab, reload, editing }) {
   const [newItem, setNewItem] = useState("");
   const [msg, setMsg] = useState("");
   const [drag, setDrag] = useState(null);
@@ -1171,12 +1200,17 @@ function NowTab({ now, routine, putRoutine, tasks, goFocus, reload, editing }) {
         s
       )));
     })()),
+    followup: () => {
+      const due = dueJobs(jobs || { items: [] });
+      return /* @__PURE__ */ React.createElement("div", { className: "cp-card" }, due.length === 0 && /* @__PURE__ */ React.createElement("div", { className: "cp-empty" }, "Nothing waiting on a chase."), due.map((j) => /* @__PURE__ */ React.createElement("div", { className: "cp-row", key: j.id }, /* @__PURE__ */ React.createElement("span", { className: "cp-rowtext" }, j.company, /* @__PURE__ */ React.createElement("span", { className: "cp-jobmeta" }, " ", sinceChecked(j), " days")), /* @__PURE__ */ React.createElement("button", { className: "cp-min", onClick: () => setTab("jobs") }, "Open"))));
+    },
     next: () => /* @__PURE__ */ React.createElement("div", { className: "cp-card" }, open.length === 0 && /* @__PURE__ */ React.createElement("div", { className: "cp-empty" }, "No open tasks. Capture one on the Tasks screen."), open.map((t) => /* @__PURE__ */ React.createElement("div", { className: "cp-row", key: t.id }, /* @__PURE__ */ React.createElement("span", { className: "cp-rowtext" }, t.text), /* @__PURE__ */ React.createElement("button", { className: "cp-min", onClick: () => goFocus(t.text, 25) }, "Start"))))
   };
   const titles = {
     day: "Day remaining",
     routine: `Routine \xB7 ${done.length}/${routine.items.length}`,
-    next: "Up next"
+    next: "Up next",
+    followup: "Follow up"
   };
   EXTRA_PANELS.forEach((p) => {
     titles[p.id] = p.title;
@@ -1608,6 +1642,201 @@ function Editable({ value, onSave, className, placeholder }) {
       }
     }
   );
+}
+const STATUSES = [
+  "Applied",
+  "No response",
+  "Screening",
+  "Interview",
+  "Offer",
+  "Rejected",
+  "Withdrawn"
+];
+const CHASING = ["Applied", "No response", "Screening"];
+const FOLLOWUP_DAYS = 3;
+function sinceChecked(job) {
+  const from = job.lastChecked || job.date;
+  if (!from) return 0;
+  const d = daysUntil(from);
+  return d === null ? 0 : -d;
+}
+function isDue(job) {
+  if (CHASING.indexOf(job.status) === -1) return false;
+  return sinceChecked(job) >= FOLLOWUP_DAYS;
+}
+function dueJobs(jobs) {
+  return (jobs.items || []).filter(isDue);
+}
+function statusColour(status) {
+  if (status === "Offer") return "var(--live)";
+  if (status === "Interview") return "var(--signal)";
+  if (status === "Rejected" || status === "Withdrawn") return "var(--dim)";
+  return "var(--dim)";
+}
+function JobsTab({ jobs, putJobs }) {
+  const today = dayKey();
+  const [open, setOpen] = useState(false);
+  const [company, setCompany] = useState("");
+  const [role, setRole] = useState("");
+  const [url, setUrl] = useState("");
+  const [date, setDate] = useState(today);
+  const [filter, setFilter] = useState("Open");
+  const add = () => {
+    const c = company.trim();
+    if (!c) return;
+    putJobs({
+      ...jobs,
+      items: [
+        {
+          id: uid(),
+          company: c,
+          role: role.trim(),
+          url: url.trim(),
+          date: date || today,
+          status: "Applied",
+          lastChecked: "",
+          notes: ""
+        }
+      ].concat(jobs.items || [])
+    });
+    setCompany("");
+    setRole("");
+    setUrl("");
+    setDate(today);
+    setOpen(false);
+  };
+  const patch = (id, fields) => putJobs({
+    ...jobs,
+    items: jobs.items.map((j) => j.id === id ? { ...j, ...fields } : j)
+  });
+  const drop = (id) => putJobs({ ...jobs, items: jobs.items.filter((j) => j.id !== id) });
+  const all = jobs.items || [];
+  const closed = ["Rejected", "Withdrawn"];
+  const shown = (filter === "Open" ? all.filter((j) => closed.indexOf(j.status) === -1) : filter === "Closed" ? all.filter((j) => closed.indexOf(j.status) !== -1) : all).slice().sort((a, b) => {
+    const ad = isDue(a) ? 1 : 0;
+    const bd = isDue(b) ? 1 : 0;
+    if (ad !== bd) return bd - ad;
+    return a.date < b.date ? 1 : -1;
+  });
+  const due = dueJobs(jobs);
+  return /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { className: "cp-presets" }, ["Open", "Closed", "All"].map((f) => /* @__PURE__ */ React.createElement(
+    "button",
+    {
+      key: f,
+      className: "cp-btn" + (filter === f ? " sel" : ""),
+      onClick: () => setFilter(f)
+    },
+    f
+  ))), due.length > 0 && /* @__PURE__ */ React.createElement("div", { className: "cp-editbar", style: { borderColor: "var(--signal)" } }, /* @__PURE__ */ React.createElement("span", null, due.length, " application", due.length === 1 ? "" : "s", " worth chasing \u2014 nothing heard for ", FOLLOWUP_DAYS, "+ days.")), !open ? /* @__PURE__ */ React.createElement(
+    "button",
+    {
+      className: "cp-btn primary",
+      style: { width: "100%", marginBottom: 20 },
+      onClick: () => setOpen(true)
+    },
+    "+ Log an application"
+  ) : /* @__PURE__ */ React.createElement("div", { className: "cp-card" }, /* @__PURE__ */ React.createElement(
+    "input",
+    {
+      className: "cp-input",
+      autoFocus: true,
+      placeholder: "Company",
+      value: company,
+      onChange: (e) => setCompany(e.target.value),
+      onKeyDown: (e) => e.key === "Enter" && add(),
+      style: { marginBottom: 8 }
+    }
+  ), /* @__PURE__ */ React.createElement(
+    "input",
+    {
+      className: "cp-input",
+      placeholder: "Role (optional)",
+      value: role,
+      onChange: (e) => setRole(e.target.value),
+      style: { marginBottom: 8 }
+    }
+  ), /* @__PURE__ */ React.createElement(
+    "input",
+    {
+      className: "cp-input",
+      placeholder: "Link to the posting (optional)",
+      value: url,
+      onChange: (e) => setUrl(e.target.value),
+      style: { marginBottom: 8 }
+    }
+  ), /* @__PURE__ */ React.createElement(
+    "input",
+    {
+      className: "cp-input",
+      type: "date",
+      max: today,
+      value: date,
+      onChange: (e) => setDate(e.target.value),
+      style: { marginBottom: 10 }
+    }
+  ), /* @__PURE__ */ React.createElement("div", { className: "cp-inline" }, /* @__PURE__ */ React.createElement("button", { className: "cp-btn primary", style: { flex: 2 }, onClick: add }, "Save"), /* @__PURE__ */ React.createElement(
+    "button",
+    {
+      className: "cp-btn",
+      style: { flex: 1 },
+      onClick: () => setOpen(false)
+    },
+    "Cancel"
+  ))), /* @__PURE__ */ React.createElement("span", { className: "cp-label" }, shown.length, " application", shown.length === 1 ? "" : "s"), shown.length === 0 && /* @__PURE__ */ React.createElement("div", { className: "cp-empty" }, "Nothing here. Log one above and it'll remind you to chase it."), shown.map((j) => {
+    const days = sinceChecked(j);
+    const due2 = isDue(j);
+    return /* @__PURE__ */ React.createElement("div", { className: "cp-job" + (due2 ? " due" : ""), key: j.id }, /* @__PURE__ */ React.createElement("div", { className: "cp-jobtop" }, /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React.createElement(
+      Editable,
+      {
+        className: "cp-jobco",
+        value: j.company,
+        onSave: (v) => patch(j.id, { company: v })
+      }
+    ), /* @__PURE__ */ React.createElement(
+      Editable,
+      {
+        className: "cp-jobrole",
+        value: j.role,
+        placeholder: "add a role",
+        onSave: (v) => patch(j.id, { role: v })
+      }
+    )), /* @__PURE__ */ React.createElement("button", { className: "cp-x", onClick: () => drop(j.id), "aria-label": "Remove" }, "\xD7")), /* @__PURE__ */ React.createElement("div", { className: "cp-jobmeta" }, "Applied ", j.date, days > 0 && ` \xB7 ${days} day${days === 1 ? "" : "s"} since checked`), /* @__PURE__ */ React.createElement("div", { className: "cp-inline", style: { marginTop: 10 } }, /* @__PURE__ */ React.createElement(
+      "select",
+      {
+        className: "cp-select",
+        value: j.status,
+        onChange: (e) => patch(j.id, { status: e.target.value }),
+        style: { flex: 1, color: statusColour(j.status) }
+      },
+      STATUSES.map((st) => /* @__PURE__ */ React.createElement("option", { key: st, value: st }, st))
+    ), CHASING.indexOf(j.status) !== -1 && /* @__PURE__ */ React.createElement(
+      "button",
+      {
+        className: "cp-btn" + (due2 ? " primary" : ""),
+        onClick: () => patch(j.id, { lastChecked: today }),
+        title: "Resets the 3-day clock"
+      },
+      "Checked"
+    ), j.url && /* @__PURE__ */ React.createElement(
+      "a",
+      {
+        className: "cp-btn",
+        href: j.url,
+        target: "_blank",
+        rel: "noopener noreferrer",
+        style: { textDecoration: "none", display: "inline-block" }
+      },
+      "Open"
+    )), /* @__PURE__ */ React.createElement(
+      Editable,
+      {
+        className: "cp-jobnote",
+        value: j.notes,
+        placeholder: "add a note",
+        onSave: (v) => patch(j.id, { notes: v })
+      }
+    ));
+  }), /* @__PURE__ */ React.createElement("p", { className: "cp-note" }, "Anything marked Applied, No response or Screening gets flagged after", " ", FOLLOWUP_DAYS, ` days. "Checked" resets that clock without changing the status \u2014 use it when you've looked and heard nothing.`));
 }
 const EXTRA_SETTINGS = [
   {
@@ -2458,7 +2687,7 @@ async function buildContext() {
     routine: { items: b.routine.items, log },
     gym: { exercises: b.gym.exercises, sets: b.gym.sets.slice(-150) },
     goals: b.goals,
-    upcoming: b.cal.events.filter((e) => e.ts > Date.now()).slice(0, 20)
+    jobs: b.jobs && b.jobs.items || []
   });
 }
 function ChatTab() {
