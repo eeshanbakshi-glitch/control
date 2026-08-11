@@ -329,6 +329,11 @@ const CSS = `
   height:10px; border:solid var(--ground); border-width:0 2px 2px 0;
   transform:rotate(42deg); }
 .cp-rowtext { flex:1; font-size:15px; line-height:1.35; }
+.cp-flame { font-family:var(--mono); font-size:12px; color:var(--signal);
+  flex:none; white-space:nowrap; font-variant-numeric:tabular-nums; }
+.cp-flame.hot { font-weight:600; }
+.cp-best { font-family:var(--mono); font-size:11px; color:var(--dim);
+  flex:none; white-space:nowrap; }
 .cp-rowtext.done { color:var(--dim); text-decoration:line-through; }
 
 .cp-x { background:none; border:none; color:var(--line); font-size:18px;
@@ -1125,7 +1130,7 @@ function NowTab({ now, routine, putRoutine, tasks, goFocus, reload, editing }) {
         onClick: () => toggle(it.id),
         "aria-label": it.label
       }
-    ), /* @__PURE__ */ React.createElement(
+    ), /* @__PURE__ */ React.createElement("span", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React.createElement(
       Editable,
       {
         className: "cp-rowtext" + (done.includes(it.id) ? " done" : ""),
@@ -1138,7 +1143,7 @@ function NowTab({ now, routine, putRoutine, tasks, goFocus, reload, editing }) {
           })
         )
       }
-    ), /* @__PURE__ */ React.createElement("button", { className: "cp-x", onClick: () => removeItem(it.id), "aria-label": "Remove" }, "\xD7"))), /* @__PURE__ */ React.createElement("div", { className: "cp-inline", style: { marginTop: 12 } }, /* @__PURE__ */ React.createElement(
+    )), /* @__PURE__ */ React.createElement(Streak, { log: routine.log, id: it.id, now }), /* @__PURE__ */ React.createElement("button", { className: "cp-x", onClick: () => removeItem(it.id), "aria-label": "Remove" }, "\xD7"))), /* @__PURE__ */ React.createElement("div", { className: "cp-inline", style: { marginTop: 12 } }, /* @__PURE__ */ React.createElement(
       "input",
       {
         className: "cp-input",
@@ -1525,6 +1530,41 @@ function FocusTab({ target, setTarget, pendingMin, clearPending }) {
     left === 0 ? "Reset" : running ? "Pause" : "Start"
   ), /* @__PURE__ */ React.createElement("button", { className: "cp-btn", style: { flex: 1 }, onClick: () => pick(minutes) }, "Reset")), /* @__PURE__ */ React.createElement("p", { className: "cp-note" }, "The ring drains anticlockwise so you can see time going, not just read it. Keep this screen open \u2014 a backgrounded browser tab may run the countdown slow.")));
 }
+function itemStreak(log, id, now) {
+  const d = new Date(now);
+  if (!(log[dayKey(d)] || []).includes(id)) d.setDate(d.getDate() - 1);
+  let n = 0;
+  for (let i = 0; i < 730; i++) {
+    if ((log[dayKey(d)] || []).includes(id)) {
+      n++;
+      d.setDate(d.getDate() - 1);
+    } else break;
+  }
+  return n;
+}
+function bestStreak(log, id) {
+  const days = Object.keys(log).sort();
+  let best = 0, run = 0, prev = null;
+  for (const k of days) {
+    if (!(log[k] || []).includes(id)) continue;
+    if (prev) {
+      const gap = Math.round((new Date(k) - new Date(prev)) / 864e5);
+      run = gap === 1 ? run + 1 : 1;
+    } else run = 1;
+    prev = k;
+    if (run > best) best = run;
+  }
+  return best;
+}
+function Streak({ log, id, now }) {
+  const n = itemStreak(log, id, now);
+  if (n >= 2)
+    return /* @__PURE__ */ React.createElement("span", { className: "cp-flame" + (n >= 7 ? " hot" : ""), title: n + " days in a row" }, "\u{1F525}", " ", n);
+  const best = bestStreak(log, id);
+  if (n === 0 && best >= 3)
+    return /* @__PURE__ */ React.createElement("span", { className: "cp-best", title: "Your longest run so far" }, "best ", best);
+  return null;
+}
 function Editable({ value, onSave, className, placeholder }) {
   const [edit, setEdit] = useState(false);
   const [draft, setDraft] = useState(value);
@@ -1820,10 +1860,11 @@ function GymTab({ gym, putGym }) {
   const [custom, setCustom] = useState("");
   const [adding, setAdding] = useState(false);
   const today = dayKey();
-  const todaySets = gym.sets.filter((s) => s.date === today);
+  const [logDate, setLogDate] = useState(today);
+  const daySets = gym.sets.filter((s) => s.date === logDate);
   const mine = customExercises(gym);
   const last = (() => {
-    const prior = gym.sets.filter((s) => s.exercise === exercise && s.date !== today).sort((a, b) => a.date < b.date ? 1 : -1);
+    const prior = gym.sets.filter((s) => s.exercise === exercise && s.date < logDate).sort((a, b) => a.date < b.date ? 1 : -1);
     if (!prior.length) return null;
     const d = prior[0].date;
     return prior.filter((s) => s.date === d);
@@ -1836,7 +1877,15 @@ function GymTab({ gym, putGym }) {
     putGym({
       ...gym,
       sets: gym.sets.concat([
-        { id: uid(), date: today, exercise, weight: w, reps: r, sets: n, t: Date.now() }
+        {
+          id: uid(),
+          date: logDate,
+          exercise,
+          weight: w,
+          reps: r,
+          sets: n,
+          t: Date.now()
+        }
       ])
     });
     setReps("");
@@ -1864,7 +1913,16 @@ function GymTab({ gym, putGym }) {
     return /* @__PURE__ */ React.createElement(GymProgress, { gym, view, setView });
   if (view === "history")
     return /* @__PURE__ */ React.createElement(GymHistory, { gym, setView, patchSet, removeSet });
-  return /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { className: "cp-presets" }, /* @__PURE__ */ React.createElement("button", { className: "cp-btn sel", onClick: () => setView("log") }, "Log"), /* @__PURE__ */ React.createElement("button", { className: "cp-btn", onClick: () => setView("history") }, "History"), /* @__PURE__ */ React.createElement("button", { className: "cp-btn", onClick: () => setView("progress") }, "Progress")), /* @__PURE__ */ React.createElement("div", { className: "cp-two" }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("span", { className: "cp-label" }, "Log a set"), /* @__PURE__ */ React.createElement("div", { className: "cp-card" }, /* @__PURE__ */ React.createElement(
+  return /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { className: "cp-presets" }, /* @__PURE__ */ React.createElement("button", { className: "cp-btn sel", onClick: () => setView("log") }, "Log"), /* @__PURE__ */ React.createElement("button", { className: "cp-btn", onClick: () => setView("history") }, "History"), /* @__PURE__ */ React.createElement("button", { className: "cp-btn", onClick: () => setView("progress") }, "Progress")), /* @__PURE__ */ React.createElement("div", { className: "cp-two" }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("span", { className: "cp-label" }, "Log a set"), /* @__PURE__ */ React.createElement("div", { className: "cp-card" }, /* @__PURE__ */ React.createElement("div", { className: "cp-inline", style: { marginBottom: 8 } }, /* @__PURE__ */ React.createElement(
+    "input",
+    {
+      className: "cp-input",
+      type: "date",
+      max: today,
+      value: logDate,
+      onChange: (e) => setLogDate(e.target.value || today)
+    }
+  ), logDate !== today && /* @__PURE__ */ React.createElement("button", { className: "cp-btn", onClick: () => setLogDate(today) }, "Today")), /* @__PURE__ */ React.createElement(
     "select",
     {
       className: "cp-select",
@@ -1933,7 +1991,7 @@ function GymTab({ gym, putGym }) {
       onKeyDown: (e) => e.key === "Enter" && logSet(),
       style: { marginTop: 5 }
     }
-  ))), /* @__PURE__ */ React.createElement("button", { className: "cp-btn primary", style: { width: "100%" }, onClick: logSet }, "Log"), last && /* @__PURE__ */ React.createElement("div", { className: "cp-last" }, "Last ", last[0].date, " \xB7", " ", last.map((s) => `${s.sets || 1}\xD7${s.weight}\xD7${s.reps}`).join("   ")))), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("span", { className: "cp-label" }, "Today \xB7 ", todaySets.reduce((n, s) => n + (s.sets || 1), 0), " sets"), /* @__PURE__ */ React.createElement("div", { className: "cp-card" }, todaySets.length === 0 && /* @__PURE__ */ React.createElement("div", { className: "cp-empty" }, "Nothing logged today."), todaySets.map((s) => /* @__PURE__ */ React.createElement(SetRow, { key: s.id, s, patchSet, removeSet }))))));
+  ))), /* @__PURE__ */ React.createElement("button", { className: "cp-btn primary", style: { width: "100%" }, onClick: logSet }, "Log"), last && /* @__PURE__ */ React.createElement("div", { className: "cp-last" }, "Last ", last[0].date, " \xB7", " ", last.map((s) => `${s.sets || 1}\xD7${s.weight}\xD7${s.reps}`).join("   ")))), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("span", { className: "cp-label" }, logDate === today ? "Today" : logDate, " \xB7", " ", daySets.reduce((n, s) => n + (s.sets || 1), 0), " sets"), /* @__PURE__ */ React.createElement("div", { className: "cp-card" }, daySets.length === 0 && /* @__PURE__ */ React.createElement("div", { className: "cp-empty" }, "Nothing logged ", logDate === today ? "today" : "that day", "."), daySets.map((s) => /* @__PURE__ */ React.createElement(SetRow, { key: s.id, s, patchSet, removeSet }))))));
 }
 function SetRow({ s, patchSet, removeSet, showDate }) {
   const [edit, setEdit] = useState(false);
