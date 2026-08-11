@@ -1033,7 +1033,9 @@ function GoalSection({ k, title, blurb, goals, putGoals }) {
     "Cancel"
   )))));
 }
-const EXTRA_PANELS = [];
+const EXTRA_PANELS = [
+  { id: "brief", title: "Briefing", render: () => /* @__PURE__ */ React.createElement(BriefPanel, null) }
+];
 const EXTRA_TABS = [{ id: "chat", title: "Chat", render: () => /* @__PURE__ */ React.createElement(ChatTab, null) }];
 const DEFAULT_LAYOUT = {
   a: ["day", "routine"],
@@ -1849,7 +1851,8 @@ const EXTRA_SETTINGS = [
     title: "Storage",
     render: () => /* @__PURE__ */ React.createElement("div", { className: "cp-card" }, /* @__PURE__ */ React.createElement(StorageHealth, null))
   },
-  { id: "api", title: "Task breakdown", render: () => /* @__PURE__ */ React.createElement(ApiKeyPanel, null) }
+  { id: "api", title: "Task breakdown", render: () => /* @__PURE__ */ React.createElement(ApiKeyPanel, null) },
+  { id: "brief", title: "Briefings", render: () => /* @__PURE__ */ React.createElement(BriefSettings, null) }
 ];
 function SettingsTab({ routine, putRoutine, reload }) {
   const [msg, setMsg] = useState("");
@@ -2754,6 +2757,173 @@ function ChatTab() {
     },
     "Clear thread"
   ));
+}
+const K_BRIEF = "cp:brief";
+const DEFAULT_BRIEF = { text: "", generated: "", period: "week", freq: "week" };
+const GROUP_OF = (() => {
+  const m = {};
+  Object.keys(LIBRARY).forEach((g) => {
+    LIBRARY[g].forEach((e) => {
+      m[e.toLowerCase()] = g;
+    });
+  });
+  return m;
+})();
+function daysBetween(a, b) {
+  return Math.round((midnight(new Date(b)) - midnight(new Date(a))) / 864e5);
+}
+function briefFacts(b, now) {
+  const today = dayKey(now);
+  const out = [];
+  const sets = b.gym && b.gym.sets || [];
+  if (sets.length) {
+    const dates = Array.from(new Set(sets.map((s) => s.date))).sort();
+    const lastDate = dates[dates.length - 1];
+    out.push(`Last gym session: ${lastDate} (${daysBetween(lastDate, today)} days ago).`);
+    const week = sets.filter((s) => daysBetween(s.date, today) < 7);
+    const days7 = new Set(week.map((s) => s.date)).size;
+    out.push(`Sessions in the last 7 days: ${days7}.`);
+    const lastByGroup = {};
+    sets.forEach((s) => {
+      const g = GROUP_OF[s.exercise.toLowerCase()] || "Other";
+      if (!lastByGroup[g] || lastByGroup[g] < s.date) lastByGroup[g] = s.date;
+    });
+    const stale = Object.keys(lastByGroup).map((g) => ({ g, d: daysBetween(lastByGroup[g], today) })).filter((x) => x.d >= 10).sort((a, c) => c.d - a.d).slice(0, 3);
+    stale.forEach((x) => out.push(`${x.g}: not trained for ${x.d} days.`));
+    const volWeek = Math.round(week.reduce((n, s) => n + setVolume(s), 0));
+    const prevWeek = sets.filter((s) => {
+      const d = daysBetween(s.date, today);
+      return d >= 7 && d < 14;
+    });
+    const volPrev = Math.round(prevWeek.reduce((n, s) => n + setVolume(s), 0));
+    if (volPrev > 0)
+      out.push(`Volume this week ${volWeek} kg vs ${volPrev} kg the week before.`);
+  } else {
+    out.push("No gym sessions logged at all.");
+  }
+  const items = b.routine && b.routine.items || [];
+  const log = b.routine && b.routine.log || {};
+  items.forEach((it) => {
+    let hit = 0;
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(now);
+      d.setDate(d.getDate() - i);
+      if ((log[dayKey(d)] || []).includes(it.id)) hit++;
+    }
+    const streak = itemStreak(log, it.id, now);
+    if (hit <= 3 || streak === 0)
+      out.push(`Routine "${it.label}": ${hit} of the last 7 days, current streak ${streak}.`);
+    else if (streak >= 5)
+      out.push(`Routine "${it.label}": ${streak} day streak.`);
+  });
+  const jobs = b.jobs && b.jobs.items || [];
+  if (jobs.length) {
+    const open = jobs.filter(
+      (j) => ["Rejected", "Withdrawn"].indexOf(j.status) === -1
+    );
+    const due = jobs.filter(isDue);
+    out.push(`Applications: ${jobs.length} total, ${open.length} still open.`);
+    due.forEach(
+      (j) => out.push(`No word from ${j.company} for ${sinceChecked(j)} days.`)
+    );
+    const latest = jobs.map((j) => j.date).sort().pop();
+    if (latest)
+      out.push(`Last application sent ${daysBetween(latest, today)} days ago.`);
+  } else {
+    out.push("No job applications logged.");
+  }
+  const goals = b.goals || { long: [], short: [] };
+  [].concat(goals.short || [], goals.long || []).filter((g) => !g.done && g.target).forEach((g) => {
+    const d = daysUntil(g.target);
+    if (d !== null && d <= 14)
+      out.push(`Goal "${g.text}": ${targetLabel(g.target)}.`);
+  });
+  const tasks = b.tasks && b.tasks.items || [];
+  const openTasks = tasks.filter((t) => !t.done);
+  out.push(`Open tasks: ${openTasks.length}.`);
+  return out.join("\n");
+}
+function BriefPanel() {
+  const [brief, setBrief] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
+  const generate = async (stored) => {
+    const client = Sync.init();
+    if (!client) return setErr("Cloud sync isn't set up.");
+    const user = await Sync.user();
+    if (!user) return setErr("Sign in under Settings to get briefings.");
+    setBusy(true);
+    setErr("");
+    try {
+      const bundle = await gatherAll();
+      const facts = briefFacts(bundle, /* @__PURE__ */ new Date());
+      const { data, error } = await client.functions.invoke("chat", {
+        body: { mode: "brief", facts, period: stored.freq === "day" ? "day" : "week" }
+      });
+      if (error) throw error;
+      if (data && data.error) throw new Error(data.error);
+      const next = {
+        ...stored,
+        text: data.reply || "",
+        generated: (/* @__PURE__ */ new Date()).toISOString()
+      };
+      await saveKey(K_BRIEF, next);
+      setBrief(next);
+    } catch (e) {
+      setErr(e && e.message || "Couldn't generate a briefing");
+    } finally {
+      setBusy(false);
+    }
+  };
+  useEffect(() => {
+    (async () => {
+      const stored = await loadKey(K_BRIEF, DEFAULT_BRIEF);
+      setBrief(stored);
+      if (stored.freq === "off") return;
+      const gap = stored.freq === "day" ? 1 : 7;
+      const age = stored.generated ? (Date.now() - Date.parse(stored.generated)) / 864e5 : 999;
+      if (age >= gap && Sync.config()) generate(stored);
+    })();
+  }, []);
+  if (!brief) return /* @__PURE__ */ React.createElement("div", { className: "cp-card" }, /* @__PURE__ */ React.createElement("div", { className: "cp-note" }, "\u2026"));
+  if (brief.freq === "off")
+    return /* @__PURE__ */ React.createElement("div", { className: "cp-card" }, /* @__PURE__ */ React.createElement("div", { className: "cp-empty" }, "Briefings are off. Turn them on in Settings."));
+  return /* @__PURE__ */ React.createElement("div", { className: "cp-card" }, busy && /* @__PURE__ */ React.createElement("div", { className: "cp-note" }, "Writing your briefing\u2026"), err && /* @__PURE__ */ React.createElement("div", { className: "cp-note", style: { color: "var(--warn)" } }, err), !busy && brief.text && /* @__PURE__ */ React.createElement(Markdown, { text: brief.text }), !busy && !brief.text && !err && /* @__PURE__ */ React.createElement("div", { className: "cp-empty" }, "No briefing yet."), /* @__PURE__ */ React.createElement("div", { className: "cp-inline", style: { marginTop: 12 } }, /* @__PURE__ */ React.createElement(
+    "button",
+    {
+      className: "cp-btn quiet",
+      style: { flex: 1 },
+      disabled: busy,
+      onClick: () => generate(brief)
+    },
+    "Refresh"
+  )), brief.generated && /* @__PURE__ */ React.createElement("p", { className: "cp-note" }, "Written ", new Date(brief.generated).toLocaleDateString(), "."));
+}
+function BriefSettings() {
+  const [brief, setBrief] = useState(null);
+  useEffect(() => {
+    loadKey(K_BRIEF, DEFAULT_BRIEF).then(setBrief);
+  }, []);
+  if (!brief) return null;
+  const set = async (freq) => {
+    const next = { ...brief, freq };
+    await saveKey(K_BRIEF, next);
+    setBrief(next);
+  };
+  return /* @__PURE__ */ React.createElement("div", { className: "cp-card" }, /* @__PURE__ */ React.createElement("div", { className: "cp-inline" }, [
+    ["off", "Off"],
+    ["week", "Weekly"],
+    ["day", "Daily"]
+  ].map(([v, l]) => /* @__PURE__ */ React.createElement(
+    "button",
+    {
+      key: v,
+      className: "cp-btn" + (brief.freq === v ? " primary" : ""),
+      style: { flex: 1 },
+      onClick: () => set(v)
+    },
+    l
+  ))), /* @__PURE__ */ React.createElement("p", { className: "cp-note" }, "A short written summary of what you've trained, what you've missed and which applications have gone quiet. Generated once per period and then read for free \u2014 it doesn't re-run every time you open the app."));
 }
 const root = ReactDOM.createRoot(document.getElementById("root"));
 root.render(React.createElement(ControlPanel));
