@@ -5,6 +5,7 @@ const K_GYM = "cp:gym";
 const K_GOALS = "cp:goals";
 const K_CAL = "cp:cal";
 const K_JOBS = "cp:jobs";
+const K_DOCS_META = "cp:docs";
 const pad = (n) => String(n).padStart(2, "0");
 const dayKey = (d = /* @__PURE__ */ new Date()) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 const uid = () => Math.random().toString(36).slice(2, 9);
@@ -100,23 +101,25 @@ async function saveKey(key, value) {
   if (typeof Sync !== "undefined") Sync.schedule();
 }
 async function gatherAll() {
-  const [tasks, routine, gym, goals, cal, jobs] = await Promise.all([
+  const [tasks, routine, gym, goals, cal, jobs, docs] = await Promise.all([
     loadKey(K_TASKS, DEFAULT_TASKS),
     loadKey(K_ROUTINE, DEFAULT_ROUTINE),
     loadKey(K_GYM, DEFAULT_GYM),
     loadKey(K_GOALS, DEFAULT_GOALS),
     loadKey(K_CAL, DEFAULT_CAL),
-    loadKey(K_JOBS, DEFAULT_JOBS)
+    loadKey(K_JOBS, DEFAULT_JOBS),
+    loadKey(K_DOCS_META, DEFAULT_DOCS_META)
   ]);
   return {
-    version: 3,
+    version: 4,
     exported: (/* @__PURE__ */ new Date()).toISOString(),
     tasks,
     routine,
     gym,
     goals,
     cal,
-    jobs
+    jobs,
+    docs
   };
 }
 async function writeAll(bundle) {
@@ -127,7 +130,8 @@ async function writeAll(bundle) {
     saveKey(K_GYM, bundle.gym || DEFAULT_GYM),
     saveKey(K_GOALS, bundle.goals || DEFAULT_GOALS),
     saveKey(K_CAL, bundle.cal || DEFAULT_CAL),
-    saveKey(K_JOBS, bundle.jobs || DEFAULT_JOBS)
+    saveKey(K_JOBS, bundle.jobs || DEFAULT_JOBS),
+    saveKey(K_DOCS_META, bundle.docs || DEFAULT_DOCS_META)
   ]);
 }
 function downloadJSON(obj, name) {
@@ -177,6 +181,7 @@ const SUGGESTED = [
 const DEFAULT_GOALS = { long: [], short: [] };
 const DEFAULT_CAL = { events: [], imported: null };
 const DEFAULT_JOBS = { items: [] };
+const DEFAULT_DOCS_META = { items: [] };
 function parseICS(input) {
   const text = String(input).replace(/\r?\n[ \t]/g, "");
   const out = [];
@@ -223,6 +228,9 @@ function longDate(d) {
 }
 function midnight(d) {
   return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+}
+function daysBetween(a, b) {
+  return Math.round((midnight(new Date(b)) - midnight(new Date(a))) / 864e5);
 }
 function daysUntil(s) {
   if (!s) return null;
@@ -412,6 +420,7 @@ const CSS = `
 /* gym */
 .cp-grid2 { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
 .cp-grid3 { display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px; }
+.cp-dot { width:9px; height:9px; border-radius:50%; flex:none; }
 .cp-last { font-family:var(--mono); font-size:11px; color:var(--live);
   margin-top:10px; }
 .cp-setrow { display:flex; justify-content:space-between; align-items:center;
@@ -755,19 +764,21 @@ function ControlPanel() {
   const [goals, setGoals] = useState(DEFAULT_GOALS);
   const [cal, setCal] = useState(DEFAULT_CAL);
   const [jobs, setJobs] = useState(DEFAULT_JOBS);
+  const [docs, setDocs] = useState(DEFAULT_DOCS_META);
   const [veil, setVeil] = useState(true);
   const [editing, setEditing] = useState(false);
   const [now, setNow] = useState(/* @__PURE__ */ new Date());
   const [focusTarget, setFocusTarget] = useState(null);
   const [pendingMin, setPendingMin] = useState(null);
   const loadAll = useCallback(async () => {
-    const [t, r, g, go, c, jb] = await Promise.all([
+    const [t, r, g, go, c, jb, dc] = await Promise.all([
       loadKey(K_TASKS, DEFAULT_TASKS),
       loadKey(K_ROUTINE, DEFAULT_ROUTINE),
       loadKey(K_GYM, DEFAULT_GYM),
       loadKey(K_GOALS, DEFAULT_GOALS),
       loadKey(K_CAL, DEFAULT_CAL),
-      loadKey(K_JOBS, DEFAULT_JOBS)
+      loadKey(K_JOBS, DEFAULT_JOBS),
+      loadKey(K_DOCS_META, DEFAULT_DOCS_META)
     ]);
     setTasks(t);
     setRoutine(r);
@@ -775,6 +786,7 @@ function ControlPanel() {
     setGoals(go);
     setCal(c);
     setJobs(jb);
+    setDocs(dc);
     setReady(true);
   }, []);
   useEffect(() => {
@@ -809,6 +821,10 @@ function ControlPanel() {
   const putJobs = useCallback((next) => {
     setJobs(next);
     saveKey(K_JOBS, next);
+  }, []);
+  const putDocs = useCallback((next) => {
+    setDocs(next);
+    saveKey(K_DOCS_META, next);
   }, []);
   const goFocus = (label, minutes) => {
     setFocusTarget(label);
@@ -880,7 +896,7 @@ function ControlPanel() {
       pendingMin,
       clearPending: () => setPendingMin(null)
     }
-  ), ready && tab === "gym" && /* @__PURE__ */ React.createElement(GymTab, { gym, putGym }), ready && tab === "goals" && /* @__PURE__ */ React.createElement(GoalsTab, { goals, putGoals }), ready && tab === "jobs" && /* @__PURE__ */ React.createElement(JobsTab, { jobs, putJobs }), ready && tab === "settings" && /* @__PURE__ */ React.createElement(SettingsTab, { routine, putRoutine, reload: loadAll }), ready && EXTRA_TABS.map(
+  ), ready && tab === "gym" && /* @__PURE__ */ React.createElement(GymTab, { gym, putGym }), ready && tab === "goals" && /* @__PURE__ */ React.createElement(GoalsTab, { goals, putGoals }), ready && tab === "jobs" && /* @__PURE__ */ React.createElement(JobsTab, { jobs, putJobs, docs, putDocs }), ready && tab === "settings" && /* @__PURE__ */ React.createElement(SettingsTab, { routine, putRoutine, reload: loadAll }), ready && EXTRA_TABS.map(
     (t) => tab === t.id ? /* @__PURE__ */ React.createElement(React.Fragment, { key: t.id }, t.render()) : null
   ))), ready && veil && /* @__PURE__ */ React.createElement(
     Launch,
@@ -1675,7 +1691,7 @@ function statusColour(status) {
   if (status === "Rejected" || status === "Withdrawn") return "var(--dim)";
   return "var(--dim)";
 }
-function JobsTab({ jobs, putJobs }) {
+function JobsTab({ jobs, putJobs, docs, putDocs }) {
   const today = dayKey();
   const [open, setOpen] = useState(false);
   const [company, setCompany] = useState("");
@@ -1721,7 +1737,7 @@ function JobsTab({ jobs, putJobs }) {
     return a.date < b.date ? 1 : -1;
   });
   const due = dueJobs(jobs);
-  return /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { className: "cp-presets" }, ["Open", "Closed", "All"].map((f) => /* @__PURE__ */ React.createElement(
+  return /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { className: "cp-presets" }, ["Open", "Closed", "All", "Documents"].map((f) => /* @__PURE__ */ React.createElement(
     "button",
     {
       key: f,
@@ -1729,7 +1745,7 @@ function JobsTab({ jobs, putJobs }) {
       onClick: () => setFilter(f)
     },
     f
-  ))), due.length > 0 && /* @__PURE__ */ React.createElement("div", { className: "cp-editbar", style: { borderColor: "var(--signal)" } }, /* @__PURE__ */ React.createElement("span", null, due.length, " application", due.length === 1 ? "" : "s", " worth chasing \u2014 nothing heard for ", FOLLOWUP_DAYS, "+ days.")), !open ? /* @__PURE__ */ React.createElement(
+  ))), filter === "Documents" && /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("span", { className: "cp-label" }, "Documents"), typeof DocsPanel === "function" ? /* @__PURE__ */ React.createElement(DocsPanel, { docs, putDocs }) : /* @__PURE__ */ React.createElement("div", { className: "cp-card" }, /* @__PURE__ */ React.createElement("div", { className: "cp-empty" }, "Document storage needs the hosted version with cloud sync."))), filter !== "Documents" && due.length > 0 && /* @__PURE__ */ React.createElement("div", { className: "cp-editbar", style: { borderColor: "var(--signal)" } }, /* @__PURE__ */ React.createElement("span", null, due.length, " application", due.length === 1 ? "" : "s", " worth chasing \u2014 nothing heard for ", FOLLOWUP_DAYS, "+ days.")), filter !== "Documents" && !open ? /* @__PURE__ */ React.createElement(
     "button",
     {
       className: "cp-btn primary",
@@ -1737,7 +1753,7 @@ function JobsTab({ jobs, putJobs }) {
       onClick: () => setOpen(true)
     },
     "+ Log an application"
-  ) : /* @__PURE__ */ React.createElement("div", { className: "cp-card" }, /* @__PURE__ */ React.createElement(
+  ) : filter === "Documents" ? null : /* @__PURE__ */ React.createElement("div", { className: "cp-card" }, /* @__PURE__ */ React.createElement(
     "input",
     {
       className: "cp-input",
@@ -1784,7 +1800,7 @@ function JobsTab({ jobs, putJobs }) {
       onClick: () => setOpen(false)
     },
     "Cancel"
-  ))), /* @__PURE__ */ React.createElement("span", { className: "cp-label" }, shown.length, " application", shown.length === 1 ? "" : "s"), shown.length === 0 && /* @__PURE__ */ React.createElement("div", { className: "cp-empty" }, "Nothing here. Log one above and it'll remind you to chase it."), shown.map((j) => {
+  ))), filter !== "Documents" && /* @__PURE__ */ React.createElement("span", { className: "cp-label" }, shown.length, " application", shown.length === 1 ? "" : "s"), filter !== "Documents" && shown.length === 0 && /* @__PURE__ */ React.createElement("div", { className: "cp-empty" }, "Nothing here. Log one above and it'll remind you to chase it."), (filter === "Documents" ? [] : shown).map((j) => {
     const days = sinceChecked(j);
     const due2 = isDue(j);
     return /* @__PURE__ */ React.createElement("div", { className: "cp-job" + (due2 ? " due" : ""), key: j.id }, /* @__PURE__ */ React.createElement("div", { className: "cp-jobtop" }, /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React.createElement(
@@ -1838,7 +1854,7 @@ function JobsTab({ jobs, putJobs }) {
         onSave: (v) => patch(j.id, { notes: v })
       }
     ));
-  }), /* @__PURE__ */ React.createElement("p", { className: "cp-note" }, "Anything marked Applied, No response or Screening gets flagged after", " ", FOLLOWUP_DAYS, ` days. "Checked" resets that clock without changing the status \u2014 use it when you've looked and heard nothing.`));
+  }), /* @__PURE__ */ React.createElement("p", { className: "cp-note", style: filter === "Documents" ? { display: "none" } : void 0 }, "Anything marked Applied, No response or Screening gets flagged after", " ", FOLLOWUP_DAYS, ` days. "Checked" resets that clock without changing the status \u2014 use it when you've looked and heard nothing.`));
 }
 const EXTRA_SETTINGS = [
   {
@@ -1930,6 +1946,194 @@ function SettingsTab({ routine, putRoutine, reload }) {
       days > 14 ? ` \u2014 ${days} days ago, worth doing again.` : "."
     );
   })())), /* @__PURE__ */ React.createElement("div", null, EXTRA_SETTINGS.map((p) => /* @__PURE__ */ React.createElement(React.Fragment, { key: p.id }, /* @__PURE__ */ React.createElement("span", { className: "cp-label" }, p.title), p.render({ reload }))), /* @__PURE__ */ React.createElement("p", { className: "cp-note" }, "Settings live here rather than on the Now screen so the dashboard stays about your day.")));
+}
+const REGIONS = [
+  {
+    name: "Neck",
+    muscles: ["Deep neck flexors", "Neck extensors", "Sternocleidomastoid"]
+  },
+  {
+    name: "Shoulders",
+    muscles: [
+      "Front delt",
+      "Side delt",
+      "Rear delt",
+      "Rotator cuff"
+    ]
+  },
+  {
+    name: "Chest",
+    muscles: ["Upper chest", "Mid & lower chest", "Serratus anterior"]
+  },
+  {
+    name: "Back",
+    muscles: [
+      "Lats",
+      "Upper traps",
+      "Mid traps",
+      "Lower traps",
+      "Rhomboids",
+      "Teres major",
+      "Erector spinae"
+    ]
+  },
+  {
+    name: "Arms",
+    muscles: [
+      "Biceps",
+      "Brachialis",
+      "Brachioradialis",
+      "Triceps long head",
+      "Triceps lateral & medial",
+      "Forearms"
+    ]
+  },
+  {
+    name: "Core",
+    muscles: ["Rectus abdominis", "Obliques", "Deep core"]
+  },
+  {
+    name: "Hips & glutes",
+    muscles: ["Glute max", "Glute medius", "Hip flexors", "Adductors"]
+  },
+  {
+    name: "Legs",
+    muscles: ["Quads", "Hamstrings", "Calves", "Soleus", "Tibialis anterior"]
+  }
+];
+const ALL_MUSCLES = REGIONS.reduce((a, r) => a.concat(r.muscles), []);
+const WORKS = {
+  // chest
+  "barbell bench press": ["Mid & lower chest", "Triceps lateral & medial", "Front delt"],
+  "incline barbell press": ["Upper chest", "Front delt", "Triceps lateral & medial"],
+  "decline barbell press": ["Mid & lower chest", "Triceps lateral & medial"],
+  "dumbbell bench press": ["Mid & lower chest", "Front delt"],
+  "incline dumbbell press": ["Upper chest", "Front delt"],
+  "machine chest press": ["Mid & lower chest", "Triceps lateral & medial"],
+  "pec deck": ["Mid & lower chest"],
+  "cable fly (high to low)": ["Mid & lower chest"],
+  "cable fly (low to high)": ["Upper chest"],
+  "dips (chest lean)": ["Mid & lower chest", "Triceps lateral & medial"],
+  "push-up": ["Mid & lower chest", "Triceps lateral & medial", "Serratus anterior"],
+  // back
+  deadlift: ["Erector spinae", "Glute max", "Hamstrings", "Upper traps"],
+  "barbell row": ["Lats", "Rhomboids", "Mid traps"],
+  "pendlay row": ["Lats", "Rhomboids", "Mid traps"],
+  "dumbbell row": ["Lats", "Rhomboids", "Teres major"],
+  "t-bar row": ["Lats", "Rhomboids", "Mid traps"],
+  "chest-supported row": ["Rhomboids", "Mid traps", "Rear delt"],
+  "seated cable row": ["Lats", "Rhomboids", "Mid traps"],
+  "lat pulldown": ["Lats", "Teres major", "Biceps"],
+  "wide-grip pulldown": ["Lats", "Teres major"],
+  "neutral-grip pulldown": ["Lats", "Biceps", "Brachialis"],
+  "pull-up": ["Lats", "Teres major", "Biceps"],
+  "chin-up": ["Lats", "Biceps", "Brachialis"],
+  "straight-arm pulldown": ["Lats", "Teres major"],
+  // shoulders
+  "overhead press": ["Front delt", "Side delt", "Triceps lateral & medial"],
+  "dumbbell shoulder press": ["Front delt", "Side delt"],
+  "arnold press": ["Front delt", "Side delt"],
+  "machine shoulder press": ["Front delt", "Side delt"],
+  "lateral raise": ["Side delt"],
+  "cable lateral raise": ["Side delt"],
+  "front raise": ["Front delt"],
+  "rear delt fly": ["Rear delt", "Rhomboids"],
+  "reverse pec deck": ["Rear delt", "Rhomboids"],
+  "face pull": ["Rear delt", "Lower traps", "Rotator cuff"],
+  "barbell shrug": ["Upper traps"],
+  "dumbbell shrug": ["Upper traps"],
+  // biceps
+  "barbell curl": ["Biceps"],
+  "ez-bar curl": ["Biceps", "Brachialis"],
+  "dumbbell curl": ["Biceps"],
+  "hammer curl": ["Brachialis", "Brachioradialis"],
+  "incline dumbbell curl": ["Biceps"],
+  "preacher curl": ["Biceps", "Brachialis"],
+  "cable curl": ["Biceps"],
+  "concentration curl": ["Biceps"],
+  // triceps
+  "close-grip bench press": ["Triceps lateral & medial", "Mid & lower chest"],
+  "triceps pushdown": ["Triceps lateral & medial"],
+  "rope pushdown": ["Triceps lateral & medial"],
+  "overhead triceps extension": ["Triceps long head"],
+  "skull crusher": ["Triceps long head", "Triceps lateral & medial"],
+  "dips (upright)": ["Triceps lateral & medial"],
+  "triceps kickback": ["Triceps lateral & medial"],
+  // quads
+  "back squat": ["Quads", "Glute max", "Erector spinae"],
+  "front squat": ["Quads", "Erector spinae"],
+  "hack squat": ["Quads"],
+  "leg press": ["Quads", "Glute max"],
+  "goblet squat": ["Quads", "Glute max"],
+  "bulgarian split squat": ["Quads", "Glute max", "Glute medius"],
+  "walking lunge": ["Quads", "Glute max", "Glute medius"],
+  "step-up": ["Quads", "Glute max"],
+  "leg extension": ["Quads"],
+  // posterior chain
+  "romanian deadlift": ["Hamstrings", "Glute max", "Erector spinae"],
+  "stiff-leg deadlift": ["Hamstrings", "Erector spinae"],
+  "lying leg curl": ["Hamstrings"],
+  "seated leg curl": ["Hamstrings"],
+  "hip thrust": ["Glute max"],
+  "glute bridge": ["Glute max"],
+  "good morning": ["Hamstrings", "Erector spinae"],
+  "cable pull-through": ["Glute max", "Hamstrings"],
+  "back extension": ["Erector spinae", "Glute max"],
+  // calves
+  "standing calf raise": ["Calves"],
+  "seated calf raise": ["Soleus"],
+  "leg press calf raise": ["Calves"],
+  // core
+  plank: ["Deep core", "Rectus abdominis"],
+  "side plank": ["Obliques", "Deep core"],
+  "hanging leg raise": ["Rectus abdominis", "Hip flexors"],
+  "cable crunch": ["Rectus abdominis"],
+  "ab wheel rollout": ["Rectus abdominis", "Deep core"],
+  "pallof press": ["Obliques", "Deep core"],
+  "dead bug": ["Deep core"],
+  "russian twist": ["Obliques"],
+  // neck & postural
+  "chin tuck": ["Deep neck flexors"],
+  "neck curl": ["Deep neck flexors", "Sternocleidomastoid"],
+  "neck extension": ["Neck extensors"],
+  "neck harness extension": ["Neck extensors"],
+  "prone y-t-w": ["Lower traps", "Mid traps", "Rear delt"],
+  "band pull-apart": ["Rear delt", "Rhomboids"],
+  "wall slide": ["Lower traps", "Serratus anterior"],
+  "external rotation": ["Rotator cuff"],
+  // full body
+  "power clean": ["Upper traps", "Glute max", "Hamstrings", "Erector spinae"],
+  "clean and jerk": ["Upper traps", "Glute max", "Front delt"],
+  snatch: ["Upper traps", "Glute max", "Side delt"],
+  "kettlebell swing": ["Glute max", "Hamstrings", "Erector spinae"],
+  "farmer's carry": ["Forearms", "Upper traps", "Deep core"],
+  "sled push": ["Quads", "Glute max", "Calves"],
+  "sled drag": ["Quads", "Hamstrings"]
+};
+function musclesOf(exercise) {
+  return WORKS[String(exercise).toLowerCase()] || null;
+}
+function muscleCoverage(sets, now) {
+  const today = dayKey(now);
+  const last = {};
+  sets.forEach((s) => {
+    const ms = musclesOf(s.exercise);
+    if (!ms) return;
+    ms.forEach((m) => {
+      if (!last[m] || last[m] < s.date) last[m] = s.date;
+    });
+  });
+  const out = {};
+  ALL_MUSCLES.forEach((m) => {
+    out[m] = last[m] ? daysBetween(last[m], today) : null;
+  });
+  return out;
+}
+function coverageColour(days) {
+  if (days === null) return "var(--warn)";
+  if (days <= 6) return "var(--live)";
+  if (days <= 13) return "var(--signal)";
+  return "var(--warn)";
 }
 const LIBRARY = {
   Chest: [
@@ -2141,11 +2345,12 @@ function GymTab({ gym, putGym }) {
     sets: gym.sets.map((s) => s.id === id ? { ...s, ...fields } : s)
   });
   const removeSet = (id) => putGym({ ...gym, sets: gym.sets.filter((s) => s.id !== id) });
+  if (view === "coverage") return /* @__PURE__ */ React.createElement(GymCoverage, { gym, setView });
   if (view === "progress")
     return /* @__PURE__ */ React.createElement(GymProgress, { gym, view, setView });
   if (view === "history")
     return /* @__PURE__ */ React.createElement(GymHistory, { gym, setView, patchSet, removeSet });
-  return /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { className: "cp-presets" }, /* @__PURE__ */ React.createElement("button", { className: "cp-btn sel", onClick: () => setView("log") }, "Log"), /* @__PURE__ */ React.createElement("button", { className: "cp-btn", onClick: () => setView("history") }, "History"), /* @__PURE__ */ React.createElement("button", { className: "cp-btn", onClick: () => setView("progress") }, "Progress")), /* @__PURE__ */ React.createElement("div", { className: "cp-two" }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("span", { className: "cp-label" }, "Log a set"), /* @__PURE__ */ React.createElement("div", { className: "cp-card" }, /* @__PURE__ */ React.createElement("div", { className: "cp-inline", style: { marginBottom: 8 } }, /* @__PURE__ */ React.createElement(
+  return /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { className: "cp-presets" }, /* @__PURE__ */ React.createElement("button", { className: "cp-btn sel", onClick: () => setView("log") }, "Log"), /* @__PURE__ */ React.createElement("button", { className: "cp-btn", onClick: () => setView("history") }, "History"), /* @__PURE__ */ React.createElement("button", { className: "cp-btn", onClick: () => setView("coverage") }, "Coverage"), /* @__PURE__ */ React.createElement("button", { className: "cp-btn", onClick: () => setView("progress") }, "Progress")), /* @__PURE__ */ React.createElement("div", { className: "cp-two" }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("span", { className: "cp-label" }, "Log a set"), /* @__PURE__ */ React.createElement("div", { className: "cp-card" }, /* @__PURE__ */ React.createElement("div", { className: "cp-inline", style: { marginBottom: 8 } }, /* @__PURE__ */ React.createElement(
     "input",
     {
       className: "cp-input",
@@ -2275,6 +2480,26 @@ function SetRow({ s, patchSet, removeSet, showDate }) {
     s.exercise,
     showDate && /* @__PURE__ */ React.createElement("span", { className: "cp-setnum" }, " \xB7 ", s.date.slice(5))
   ), /* @__PURE__ */ React.createElement("span", { className: "cp-setnum", style: { marginRight: 10 } }, s.sets || 1, " \xD7 ", s.weight, " \xD7 ", s.reps), /* @__PURE__ */ React.createElement("button", { className: "cp-x", onClick: () => removeSet(s.id), "aria-label": "Remove" }, "\xD7"));
+}
+function GymCoverage({ gym, setView }) {
+  const now = /* @__PURE__ */ new Date();
+  const cov = muscleCoverage(gym.sets || [], now);
+  const unmapped = Array.from(
+    new Set(
+      (gym.sets || []).filter((s) => !musclesOf(s.exercise)).map((s) => s.exercise)
+    )
+  );
+  const neglected = ALL_MUSCLES.filter((m) => cov[m] === null || cov[m] >= 14);
+  return /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { className: "cp-presets" }, /* @__PURE__ */ React.createElement("button", { className: "cp-btn", onClick: () => setView("log") }, "Log"), /* @__PURE__ */ React.createElement("button", { className: "cp-btn", onClick: () => setView("history") }, "History"), /* @__PURE__ */ React.createElement("button", { className: "cp-btn sel", onClick: () => setView("coverage") }, "Coverage"), /* @__PURE__ */ React.createElement("button", { className: "cp-btn", onClick: () => setView("progress") }, "Progress")), /* @__PURE__ */ React.createElement("div", { className: "cp-netrow" }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("span", { className: "cp-net" }, ALL_MUSCLES.length - neglected.length), /* @__PURE__ */ React.createElement("span", { className: "cp-goalmeta" }, "of ", ALL_MUSCLES.length, " hit in 14 days"))), REGIONS.map((r) => /* @__PURE__ */ React.createElement("div", { className: "cp-panel", key: r.name }, /* @__PURE__ */ React.createElement("div", { className: "cp-phead" }, /* @__PURE__ */ React.createElement("span", { className: "cp-ptitle" }, r.name)), /* @__PURE__ */ React.createElement("div", { className: "cp-card" }, r.muscles.map((m) => {
+    const d = cov[m];
+    return /* @__PURE__ */ React.createElement("div", { className: "cp-setrow", key: m }, /* @__PURE__ */ React.createElement(
+      "span",
+      {
+        className: "cp-dot",
+        style: { background: coverageColour(d) }
+      }
+    ), /* @__PURE__ */ React.createElement("span", { style: { flex: 1, marginLeft: 11 } }, m), /* @__PURE__ */ React.createElement("span", { className: "cp-setnum", style: { color: coverageColour(d) } }, d === null ? "never" : d === 0 ? "today" : d + "d"));
+  })))), unmapped.length > 0 && /* @__PURE__ */ React.createElement("p", { className: "cp-note" }, "Not counted, because I don't know what they work:", " ", unmapped.join(", "), ". Exercises you add yourself aren't mapped to muscles."), /* @__PURE__ */ React.createElement("p", { className: "cp-note" }, "Green under a week, amber under two, red beyond that or never. Only primary movers count \u2014 a muscle assisting on a press doesn't tick it off."));
 }
 function GymHistory({ gym, setView, patchSet, removeSet }) {
   const [openDay, setOpenDay] = useState(dayKey());
@@ -2759,19 +2984,9 @@ function ChatTab() {
   ));
 }
 const K_BRIEF = "cp:brief";
+let briefInFlight = false;
+let briefCheckedThisSession = false;
 const DEFAULT_BRIEF = { text: "", generated: "", period: "week", freq: "week" };
-const GROUP_OF = (() => {
-  const m = {};
-  Object.keys(LIBRARY).forEach((g) => {
-    LIBRARY[g].forEach((e) => {
-      m[e.toLowerCase()] = g;
-    });
-  });
-  return m;
-})();
-function daysBetween(a, b) {
-  return Math.round((midnight(new Date(b)) - midnight(new Date(a))) / 864e5);
-}
 function briefFacts(b, now) {
   const today = dayKey(now);
   const out = [];
@@ -2783,13 +2998,12 @@ function briefFacts(b, now) {
     const week = sets.filter((s) => daysBetween(s.date, today) < 7);
     const days7 = new Set(week.map((s) => s.date)).size;
     out.push(`Sessions in the last 7 days: ${days7}.`);
-    const lastByGroup = {};
-    sets.forEach((s) => {
-      const g = GROUP_OF[s.exercise.toLowerCase()] || "Other";
-      if (!lastByGroup[g] || lastByGroup[g] < s.date) lastByGroup[g] = s.date;
-    });
-    const stale = Object.keys(lastByGroup).map((g) => ({ g, d: daysBetween(lastByGroup[g], today) })).filter((x) => x.d >= 10).sort((a, c) => c.d - a.d).slice(0, 3);
-    stale.forEach((x) => out.push(`${x.g}: not trained for ${x.d} days.`));
+    const cov = muscleCoverage(sets, now);
+    const never = ALL_MUSCLES.filter((m) => cov[m] === null);
+    const stale = ALL_MUSCLES.filter((m) => cov[m] !== null && cov[m] >= 14).sort((a, c) => cov[c] - cov[a]).slice(0, 5);
+    stale.forEach((m) => out.push(`${m}: not trained for ${cov[m]} days.`));
+    if (never.length)
+      out.push(`Never trained: ${never.slice(0, 8).join(", ")}.`);
     const volWeek = Math.round(week.reduce((n, s) => n + setVolume(s), 0));
     const prevWeek = sets.filter((s) => {
       const d = daysBetween(s.date, today);
@@ -2852,8 +3066,12 @@ function BriefPanel() {
     if (!client) return setErr("Cloud sync isn't set up.");
     const user = await Sync.user();
     if (!user) return setErr("Sign in under Settings to get briefings.");
+    if (briefInFlight) return;
+    briefInFlight = true;
     setBusy(true);
     setErr("");
+    const attempted = { ...stored, generated: (/* @__PURE__ */ new Date()).toISOString() };
+    await saveKey(K_BRIEF, attempted);
     try {
       const bundle = await gatherAll();
       const facts = briefFacts(bundle, /* @__PURE__ */ new Date());
@@ -2862,16 +3080,14 @@ function BriefPanel() {
       });
       if (error) throw error;
       if (data && data.error) throw new Error(data.error);
-      const next = {
-        ...stored,
-        text: data.reply || "",
-        generated: (/* @__PURE__ */ new Date()).toISOString()
-      };
+      const next = { ...attempted, text: data.reply || "" };
       await saveKey(K_BRIEF, next);
       setBrief(next);
     } catch (e) {
       setErr(e && e.message || "Couldn't generate a briefing");
+      setBrief(attempted);
     } finally {
+      briefInFlight = false;
       setBusy(false);
     }
   };
@@ -2880,6 +3096,8 @@ function BriefPanel() {
       const stored = await loadKey(K_BRIEF, DEFAULT_BRIEF);
       setBrief(stored);
       if (stored.freq === "off") return;
+      if (briefCheckedThisSession) return;
+      briefCheckedThisSession = true;
       const gap = stored.freq === "day" ? 1 : 7;
       const age = stored.generated ? (Date.now() - Date.parse(stored.generated)) / 864e5 : 999;
       if (age >= gap && Sync.config()) generate(stored);
@@ -2894,10 +3112,13 @@ function BriefPanel() {
       className: "cp-btn quiet",
       style: { flex: 1 },
       disabled: busy,
-      onClick: () => generate(brief)
+      onClick: () => {
+        briefInFlight = false;
+        generate(brief);
+      }
     },
     "Refresh"
-  )), brief.generated && /* @__PURE__ */ React.createElement("p", { className: "cp-note" }, "Written ", new Date(brief.generated).toLocaleDateString(), "."));
+  )), brief.generated && /* @__PURE__ */ React.createElement("p", { className: "cp-note" }, "Written ", new Date(brief.generated).toLocaleString(), " \xB7 next", " ", brief.freq === "day" ? "tomorrow" : "in a week", ". One call per period, not per visit."));
 }
 function BriefSettings() {
   const [brief, setBrief] = useState(null);
@@ -2924,6 +3145,135 @@ function BriefSettings() {
     },
     l
   ))), /* @__PURE__ */ React.createElement("p", { className: "cp-note" }, "A short written summary of what you've trained, what you've missed and which applications have gone quiet. Generated once per period and then read for free \u2014 it doesn't re-run every time you open the app."));
+}
+const BUCKET = "docs";
+const MAX_DOC_MB = 10;
+const K_DOCS = "cp:docs";
+const DEFAULT_DOCS = { items: [] };
+function prettySize(bytes) {
+  if (!bytes && bytes !== 0) return "";
+  if (bytes < 1024) return bytes + " B";
+  if (bytes < 1024 * 1024) return Math.round(bytes / 1024) + " KB";
+  return (bytes / 1048576).toFixed(1) + " MB";
+}
+function safeName(name) {
+  return String(name).replace(/[^\w.\- ]+/g, "").replace(/\s+/g, "_").slice(0, 90);
+}
+function DocsPanel({ docs, putDocs }) {
+  const [busy, setBusy] = useState("");
+  const [err, setErr] = useState("");
+  const fileRef = useRef(null);
+  const items = docs && docs.items || [];
+  const upload = async (file) => {
+    if (!file) return;
+    if (file.size > MAX_DOC_MB * 1024 * 1024)
+      return setErr(`That file is over ${MAX_DOC_MB} MB.`);
+    const client = Sync.init();
+    if (!client) return setErr("Set up cloud sync in Settings first.");
+    const user = await Sync.user();
+    if (!user) return setErr("Sign in under Settings first.");
+    setBusy("Uploading\u2026");
+    setErr("");
+    try {
+      const path = `${user.id}/${Date.now()}_${safeName(file.name)}`;
+      const { error } = await client.storage.from(BUCKET).upload(path, file, { upsert: false, contentType: file.type });
+      if (error) throw error;
+      putDocs({
+        ...docs,
+        items: [
+          {
+            id: uid(),
+            path,
+            name: file.name,
+            label: "",
+            size: file.size,
+            added: dayKey()
+          }
+        ].concat(items)
+      });
+    } catch (e) {
+      setErr(e && e.message || "Upload failed");
+    } finally {
+      setBusy("");
+    }
+  };
+  const download = async (doc) => {
+    const client = Sync.init();
+    if (!client) return setErr("Set up cloud sync first.");
+    setBusy("Preparing\u2026");
+    setErr("");
+    try {
+      const { data, error } = await client.storage.from(BUCKET).createSignedUrl(doc.path, 120);
+      if (error) throw error;
+      const a = document.createElement("a");
+      a.href = data.signedUrl;
+      a.download = doc.name;
+      a.target = "_blank";
+      a.rel = "noopener noreferrer";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    } catch (e) {
+      setErr(e && e.message || "Couldn't create a download link");
+    } finally {
+      setBusy("");
+    }
+  };
+  const remove = async (doc) => {
+    const client = Sync.init();
+    setBusy("Deleting\u2026");
+    setErr("");
+    try {
+      if (client) await client.storage.from(BUCKET).remove([doc.path]);
+      putDocs({ ...docs, items: items.filter((d) => d.id !== doc.id) });
+    } catch (e) {
+      setErr(e && e.message || "Delete failed");
+    } finally {
+      setBusy("");
+    }
+  };
+  const patch = (id, fields) => putDocs({
+    ...docs,
+    items: items.map((d) => d.id === id ? { ...d, ...fields } : d)
+  });
+  return /* @__PURE__ */ React.createElement("div", { className: "cp-card" }, /* @__PURE__ */ React.createElement(
+    "button",
+    {
+      className: "cp-btn",
+      style: { width: "100%" },
+      disabled: !!busy,
+      onClick: () => fileRef.current && fileRef.current.click()
+    },
+    busy || "Upload a document"
+  ), /* @__PURE__ */ React.createElement(
+    "input",
+    {
+      ref: fileRef,
+      type: "file",
+      accept: ".pdf,.doc,.docx,.odt,.png,.jpg,.jpeg",
+      style: { display: "none" },
+      onChange: (e) => {
+        upload(e.target.files && e.target.files[0]);
+        e.target.value = "";
+      }
+    }
+  ), err && /* @__PURE__ */ React.createElement("p", { className: "cp-note", style: { color: "var(--warn)" } }, err), items.length === 0 && !busy && /* @__PURE__ */ React.createElement("div", { className: "cp-empty" }, "No documents yet. CVs and cover letters go here."), items.map((d) => /* @__PURE__ */ React.createElement("div", { className: "cp-setrow", key: d.id }, /* @__PURE__ */ React.createElement("div", { style: { flex: 1, minWidth: 0 } }, /* @__PURE__ */ React.createElement("div", { className: "cp-rowtext", style: { fontSize: 14 } }, d.name), /* @__PURE__ */ React.createElement(
+    Editable,
+    {
+      className: "cp-jobmeta",
+      value: d.label,
+      placeholder: "add a label (e.g. GNC version)",
+      onSave: (v) => patch(d.id, { label: v })
+    }
+  ), /* @__PURE__ */ React.createElement("div", { className: "cp-jobmeta" }, d.added, " \xB7 ", prettySize(d.size))), /* @__PURE__ */ React.createElement(
+    "button",
+    {
+      className: "cp-min",
+      style: { marginRight: 8 },
+      onClick: () => download(d)
+    },
+    "Get"
+  ), /* @__PURE__ */ React.createElement("button", { className: "cp-x", onClick: () => remove(d), "aria-label": "Delete" }, "\xD7"))), /* @__PURE__ */ React.createElement("p", { className: "cp-note" }, "Stored in a private bucket scoped to your account \u2014 the file is not readable without being signed in, and download links expire after two minutes. Nothing is kept in this browser."));
 }
 const root = ReactDOM.createRoot(document.getElementById("root"));
 root.render(React.createElement(ControlPanel));
